@@ -2,23 +2,23 @@
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 /**
- * \file        class/wurthpunchoutsession.class.php
- * \ingroup     wurthpunchout
+ * \file        class/lmdbwurthpunchoutsession.class.php
+ * \ingroup     lmdbwurthpunchout
  * \brief       Punchout session object.
  */
 
 require_once DOL_DOCUMENT_ROOT.'/core/class/commonobject.class.php';
-require_once __DIR__.'/wurthpunchoutconfig.class.php';
-require_once __DIR__.'/wurthpunchoutsecurity.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
 
 /**
  * Punchout session.
  */
-class WurthPunchoutSession extends CommonObject
+class LmdbWurthPunchoutSession extends CommonObject
 {
-	public $module = 'wurthpunchout';
-	public $element = 'wurthpunchout_session';
-	public $table_element = 'wurthpunchout_session';
+	public $module = 'lmdbwurthpunchout';
+	public $element = 'lmdbwurthpunchout_session';
+	public $table_element = 'lmdbwurthpunchout_session';
 	public $picto = 'technic';
 	public $ismultientitymanaged = 1;
 
@@ -64,14 +64,14 @@ class WurthPunchoutSession extends CommonObject
 		global $conf;
 
 		$this->entity = (int) $conf->entity;
-		$this->token_hash = WurthPunchoutSecurity::hashToken($rawToken);
+		$this->token_hash = LmdbWurthPunchoutSecurity::hashToken($rawToken);
 		$this->fk_commandefourn = (int) $order->id;
 		$this->fk_soc = (int) $order->socid;
 		$this->fk_user = (int) $user->id;
 		$this->protocol = strtoupper($protocol);
 		$this->status = self::STATUS_CREATED;
 		$this->datec = dol_now();
-		$this->date_validity = dol_now() + (max(1, WurthPunchoutConfig::getInt('TOKEN_TTL', 30)) * 60);
+		$this->date_validity = dol_now() + (max(1, LmdbWurthPunchoutConfig::getInt('TOKEN_TTL', 30)) * 60);
 		$this->ip_address = dol_substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64);
 
 		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.$this->table_element.' (';
@@ -127,7 +127,7 @@ class WurthPunchoutSession extends CommonObject
 	{
 		$sql = 'SELECT rowid, entity, token_hash, fk_commandefourn, fk_soc, fk_user, protocol, status, datec, tms, date_validity, date_return, date_import, raw_payload, normalized_payload, import_log, error_message, import_count, ip_address';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.$this->table_element;
-		$sql .= " WHERE token_hash = '".$this->db->escape(WurthPunchoutSecurity::hashToken($rawToken))."'";
+		$sql .= " WHERE token_hash = '".$this->db->escape(LmdbWurthPunchoutSecurity::hashToken($rawToken))."'";
 		$sql .= ' AND entity = '.((int) $entity);
 
 		return $this->fetchCommon($sql);
@@ -223,7 +223,7 @@ class WurthPunchoutSession extends CommonObject
 			return -1;
 		}
 
-		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'wurthpunchout_session_line WHERE fk_session = '.((int) $this->id);
+		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line WHERE fk_session = '.((int) $this->id);
 		if (!$this->db->query($sql)) {
 			$this->error = $this->db->lasterror();
 			$this->db->rollback();
@@ -233,7 +233,7 @@ class WurthPunchoutSession extends CommonObject
 		$lineIndex = 0;
 		foreach ($lines as $line) {
 			$lineIndex++;
-			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'wurthpunchout_session_line (';
+			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line (';
 			$sql .= 'entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate';
 			$sql .= ') VALUES (';
 			$sql .= ((int) $this->entity);
@@ -277,7 +277,7 @@ class WurthPunchoutSession extends CommonObject
 	{
 		$lines = array();
 		$sql = 'SELECT rowid, entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, fk_unit, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate, fk_product, fk_product_fournisseur_price, fk_commandefourndet, warning';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'wurthpunchout_session_line';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line';
 		$sql .= ' WHERE fk_session = '.((int) $this->id);
 		$sql .= ' ORDER BY line_index ASC';
 
@@ -307,7 +307,7 @@ class WurthPunchoutSession extends CommonObject
 	 */
 	public function updateLineImport($lineId, $fkProduct, $fkSupplierPrice, $fkSupplierOrderLn, $fkUnit, $warning = '')
 	{
-		$sql = 'UPDATE '.MAIN_DB_PREFIX.'wurthpunchout_session_line SET';
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line SET';
 		$sql .= ' fk_product = '.($fkProduct > 0 ? (int) $fkProduct : 'NULL');
 		$sql .= ', fk_product_fournisseur_price = '.($fkSupplierPrice > 0 ? (int) $fkSupplierPrice : 'NULL');
 		$sql .= ', fk_commandefourndet = '.($fkSupplierOrderLn > 0 ? (int) $fkSupplierOrderLn : 'NULL');
@@ -386,7 +386,7 @@ class WurthPunchoutSession extends CommonObject
 	{
 		global $conf;
 
-		$days = max(1, WurthPunchoutConfig::getInt('RETENTION_DAYS', 30));
+		$days = max(1, LmdbWurthPunchoutConfig::getInt('RETENTION_DAYS', 30));
 		$limit = dol_now() - ($days * 86400);
 
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;

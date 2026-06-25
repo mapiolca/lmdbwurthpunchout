@@ -1,4 +1,4 @@
-CREATE TABLE llx_wurthpunchout_unitmap (
+CREATE TABLE llx_lmdbwurthpunchout_unitmap (
 	rowid integer AUTO_INCREMENT PRIMARY KEY,
 	entity integer DEFAULT 1 NOT NULL,
 	wurth_unit varchar(32) NOT NULL,

@@ -1,4 +1,4 @@
-# WURTH Punchout for Dolibarr
+# LmdbWurthPunchout
 
 Module externe Dolibarr pour importer un panier Punchout WURTH dans une commande fournisseur brouillon.
 
@@ -7,9 +7,9 @@ Module externe Dolibarr pour importer un panier Punchout WURTH dans une commande
 - Dolibarr : v20+
 - PHP : 8.0+
 - Base : MySQL/MariaDB via l'abstraction Dolibarr
-- Emplacement d'installation : `htdocs/custom/wurthpunchout`
+- Emplacement d'installation : `htdocs/custom/lmdbwurthpunchout`
 
-Le dépôt contient directement la racine du module. Pour l'installer, placer ce répertoire dans `htdocs/custom/wurthpunchout`, puis activer le module depuis la liste des modules Dolibarr.
+Le dépôt contient directement la racine du module. Pour l'installer, placer ce répertoire dans `htdocs/custom/lmdbwurthpunchout`, puis activer le module depuis la liste des modules Dolibarr.
 
 ## Dépendances
 
@@ -35,7 +35,7 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 Le seul point d'entrée déclaré est :
 
 ```text
-admin/setup.php@wurthpunchout
+admin/setup.php@lmdbwurthpunchout
 ```
 
 Onglets internes disponibles :

@@ -1,12 +1,12 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
-require_once __DIR__.'/wurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
 
 /**
  * Parse OCI and cXML payloads into a common line structure.
  */
-class WurthPunchoutParser
+class LmdbWurthPunchoutParser
 {
 	/**
 	 * Parse OCI array payload.
@@ -47,7 +47,7 @@ class WurthPunchoutParser
 			}
 
 			$unitPrice = $price;
-			if (WurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') === 'divide') {
+			if (LmdbWurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') === 'divide') {
 				$unitPrice = $price / $priceUnit;
 			}
 
@@ -61,9 +61,9 @@ class WurthPunchoutParser
 				'price' => $price,
 				'price_unit' => $priceUnit,
 				'unit_price_ht' => $unitPrice,
-				'currency' => strtoupper(trim((string) ($item['CURRENCY'] ?? WurthPunchoutConfig::getExpectedCurrency()))),
+				'currency' => strtoupper(trim((string) ($item['CURRENCY'] ?? LmdbWurthPunchoutConfig::getExpectedCurrency()))),
 				'leadtime_days' => (int) self::toFloat($item['LEADTIME'] ?? 0),
-				'vat_rate' => WurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0),
+				'vat_rate' => LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0),
 			);
 		}
 
@@ -99,12 +99,12 @@ class WurthPunchoutParser
 			}
 
 			$moneyNode = $xpath->query('.//*[local-name()="UnitPrice"]//*[local-name()="Money"]', $item)->item(0);
-			$currency = $moneyNode instanceof DOMElement && $moneyNode->hasAttribute('currency') ? strtoupper($moneyNode->getAttribute('currency')) : WurthPunchoutConfig::getExpectedCurrency();
+			$currency = $moneyNode instanceof DOMElement && $moneyNode->hasAttribute('currency') ? strtoupper($moneyNode->getAttribute('currency')) : LmdbWurthPunchoutConfig::getExpectedCurrency();
 			$price = $moneyNode ? self::toFloat($moneyNode->textContent) : 0.0;
 			$shortName = $this->xpathText($xpath, './/*[local-name()="ShortName"]', $item);
 			$description = $this->xpathText($xpath, './/*[local-name()="Description"]', $item);
 			$taxNode = $xpath->query('.//*[local-name()="TaxDetail"]', $item)->item(0);
-			$vatRate = WurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+			$vatRate = LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
 			if ($taxNode instanceof DOMElement && $taxNode->hasAttribute('percentageRate')) {
 				$vatRate = self::toFloat($taxNode->getAttribute('percentageRate'));
 			}

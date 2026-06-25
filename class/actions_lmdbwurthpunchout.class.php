@@ -2,18 +2,18 @@
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 /**
- * \file        class/actions_wurthpunchout.class.php
- * \ingroup     wurthpunchout
+ * \file        class/actions_lmdbwurthpunchout.class.php
+ * \ingroup     lmdbwurthpunchout
  * \brief       Hooks for WURTH Punchout.
  */
 
-require_once __DIR__.'/wurthpunchoutconfig.class.php';
-require_once __DIR__.'/wurthpunchoutsecurity.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
 
 /**
  * Hook class.
  */
-class ActionsWurthPunchout
+class ActionsLmdbWurthPunchout
 {
 	/** @var DoliDB */
 	public $db;
@@ -58,7 +58,7 @@ class ActionsWurthPunchout
 			return 0;
 		}
 
-		if (empty($conf->wurthpunchout->enabled) && !isModEnabled('wurthpunchout')) {
+		if (empty($conf->lmdbwurthpunchout->enabled) && !isModEnabled('lmdbwurthpunchout')) {
 			return 0;
 		}
 
@@ -66,7 +66,7 @@ class ActionsWurthPunchout
 			return 0;
 		}
 
-		if (!WurthPunchoutSecurity::canUsePunchout($user)) {
+		if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
 			return 0;
 		}
 
@@ -82,26 +82,33 @@ class ActionsWurthPunchout
 			return 0;
 		}
 
-		if ((int) $object->socid !== WurthPunchoutConfig::getInt('FK_SOC')) {
+		if ((int) $object->socid !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
 			return 0;
 		}
 
-		if (!WurthPunchoutConfig::isComplete()) {
+		if (!LmdbWurthPunchoutConfig::isComplete()) {
 			return 0;
 		}
 
-		$langs->load('wurthpunchout@wurthpunchout');
-		$url = dol_buildpath('/wurthpunchout/public/start.php', 1).'?id='.(int) $object->id.'&token='.urlencode(newToken());
-		$mode = WurthPunchoutConfig::getOpenMode();
+		$langs->load('lmdbwurthpunchout@lmdbwurthpunchout');
+		$url = dol_buildpath('/lmdbwurthpunchout/public/start.php', 1).'?id='.(int) $object->id.'&token='.urlencode(newToken());
+		$mode = LmdbWurthPunchoutConfig::getOpenMode();
 
 		if ($mode === 'popup') {
-			print '<a class="butAction" href="'.$url.'" onclick="window.open(this.href, \'wurthpunchout\', \'width=1200,height=850,scrollbars=yes,resizable=yes\'); return false;">'.$langs->trans('WurthPunchoutButton').'</a>';
+			print '<a class="butAction" href="'.$url.'" onclick="window.open(this.href, \'lmdbwurthpunchout\', \'width=1200,height=850,scrollbars=yes,resizable=yes\'); return false;">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
 		} elseif ($mode === 'newtab') {
-			print '<a class="butAction" target="_blank" rel="noopener" href="'.$url.'">'.$langs->trans('WurthPunchoutButton').'</a>';
+			print '<a class="butAction" target="_blank" rel="noopener" href="'.$url.'">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
 		} else {
-			print '<a class="butAction" href="'.$url.'">'.$langs->trans('WurthPunchoutButton').'</a>';
+			print '<a class="butAction" href="'.$url.'">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
 		}
 
 		return 0;
 	}
+}
+
+/**
+ * Dolibarr v20 hook manager builds the class name with ucfirst($modulekey).
+ */
+class ActionsLmdbwurthpunchout extends ActionsLmdbWurthPunchout
+{
 }

@@ -22,9 +22,9 @@ if (!function_exists('getDolGlobalString')) {
 	function getDolGlobalString($key, $default = '')
 	{
 		$defaults = array(
-			'WURTHPUNCHOUT_DEFAULT_VAT' => '20',
-			'WURTHPUNCHOUT_CURRENCY' => 'EUR',
-			'WURTHPUNCHOUT_PRICEUNIT_MODE' => 'divide',
+			'LMDBWURTHPUNCHOUT_DEFAULT_VAT' => '20',
+			'LMDBWURTHPUNCHOUT_CURRENCY' => 'EUR',
+			'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE' => 'divide',
 		);
 		return $defaults[$key] ?? $default;
 	}
@@ -36,9 +36,9 @@ if (!function_exists('getDolGlobalInt')) {
 	}
 }
 
-require_once __DIR__.'/../class/wurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
 
-$parser = new WurthPunchoutParser();
+$parser = new LmdbWurthPunchoutParser();
 
 $oci = array(
 	'NEW_ITEM-QUANTITY[1]' => '100.000',

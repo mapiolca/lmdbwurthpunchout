@@ -8,8 +8,8 @@
  */
 
 /**
- * \file        core/modules/modWurthPunchout.class.php
- * \ingroup     wurthpunchout
+ * \file        core/modules/modLmdbWurthPunchout.class.php
+ * \ingroup     lmdbwurthpunchout
  * \brief       Descriptor for WURTH Punchout module.
  */
 
@@ -18,7 +18,7 @@ include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
 /**
  * Module descriptor.
  */
-class modWurthPunchout extends DolibarrModules
+class modLmdbWurthPunchout extends DolibarrModules
 {
 	/**
 	 * Constructor.
@@ -32,12 +32,12 @@ class modWurthPunchout extends DolibarrModules
 		$this->db = $db;
 
 		$this->numero = 510700;
-		$this->rights_class = 'wurthpunchout';
+		$this->rights_class = 'lmdbwurthpunchout';
 		$this->family = 'interface';
 		$this->module_position = '90';
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
-		$this->description = 'WurthPunchoutModuleDescription';
-		$this->descriptionlong = 'WurthPunchoutModuleDescriptionLong';
+		$this->description = 'LmdbWurthPunchoutModuleDescription';
+		$this->descriptionlong = 'LmdbWurthPunchoutModuleDescriptionLong';
 		$this->version = '1.0.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'technic';
@@ -51,10 +51,10 @@ class modWurthPunchout extends DolibarrModules
 			),
 		);
 
-		$this->dirs = array('/wurthpunchout/temp');
+		$this->dirs = array('/lmdbwurthpunchout/temp');
 
 		$this->config_page_url = array(
-			'setup.php@wurthpunchout',
+			'setup.php@lmdbwurthpunchout',
 		);
 
 		$this->hidden = false;
@@ -63,20 +63,20 @@ class modWurthPunchout extends DolibarrModules
 		$this->conflictwith = array();
 		$this->phpmin = array(8, 0);
 		$this->need_dolibarr_version = array(20, 0);
-		$this->langfiles = array('wurthpunchout@wurthpunchout');
+		$this->langfiles = array('lmdbwurthpunchout@lmdbwurthpunchout');
 
 		$this->const = array(
-			1 => array('WURTHPUNCHOUT_PROTOCOL', 'chaine', 'OCI', 'Default punchout protocol', 0, 'current', 1),
-			2 => array('WURTHPUNCHOUT_OPEN_MODE', 'chaine', 'popup', 'Default opening mode', 0, 'current', 1),
-			3 => array('WURTHPUNCHOUT_CURRENCY', 'chaine', 'EUR', 'Expected currency', 0, 'current', 1),
-			4 => array('WURTHPUNCHOUT_DEFAULT_VAT', 'chaine', '20', 'Default VAT rate', 0, 'current', 1),
-			5 => array('WURTHPUNCHOUT_CREATE_PRODUCTS', 'chaine', '1', 'Create missing products', 0, 'current', 1),
-			6 => array('WURTHPUNCHOUT_ALLOW_ZERO_PRICE', 'chaine', '0', 'Allow zero prices', 0, 'current', 1),
-			7 => array('WURTHPUNCHOUT_PRODUCT_REF_PREFIX', 'chaine', 'WURTH-', 'Product reference prefix', 0, 'current', 1),
-			8 => array('WURTHPUNCHOUT_PRICEUNIT_MODE', 'chaine', 'divide', 'How OCI PRICEUNIT is used', 0, 'current', 1),
-			9 => array('WURTHPUNCHOUT_TOKEN_TTL', 'chaine', '30', 'Punchout token duration in minutes', 0, 'current', 1),
-			10 => array('WURTHPUNCHOUT_RETENTION_DAYS', 'chaine', '30', 'Session retention duration in days', 0, 'current', 1),
-			11 => array('WURTHPUNCHOUT_OCI_METHOD', 'chaine', 'GET', 'OCI call method', 0, 'current', 1),
+			1 => array('LMDBWURTHPUNCHOUT_PROTOCOL', 'chaine', 'OCI', 'Default punchout protocol', 0, 'current', 1),
+			2 => array('LMDBWURTHPUNCHOUT_OPEN_MODE', 'chaine', 'popup', 'Default opening mode', 0, 'current', 1),
+			3 => array('LMDBWURTHPUNCHOUT_CURRENCY', 'chaine', 'EUR', 'Expected currency', 0, 'current', 1),
+			4 => array('LMDBWURTHPUNCHOUT_DEFAULT_VAT', 'chaine', '20', 'Default VAT rate', 0, 'current', 1),
+			5 => array('LMDBWURTHPUNCHOUT_CREATE_PRODUCTS', 'chaine', '1', 'Create missing products', 0, 'current', 1),
+			6 => array('LMDBWURTHPUNCHOUT_ALLOW_ZERO_PRICE', 'chaine', '0', 'Allow zero prices', 0, 'current', 1),
+			7 => array('LMDBWURTHPUNCHOUT_PRODUCT_REF_PREFIX', 'chaine', 'WURTH-', 'Product reference prefix', 0, 'current', 1),
+			8 => array('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'chaine', 'divide', 'How OCI PRICEUNIT is used', 0, 'current', 1),
+			9 => array('LMDBWURTHPUNCHOUT_TOKEN_TTL', 'chaine', '30', 'Punchout token duration in minutes', 0, 'current', 1),
+			10 => array('LMDBWURTHPUNCHOUT_RETENTION_DAYS', 'chaine', '30', 'Session retention duration in days', 0, 'current', 1),
+			11 => array('LMDBWURTHPUNCHOUT_OCI_METHOD', 'chaine', 'GET', 'OCI call method', 0, 'current', 1),
 		);
 
 		$this->tabs = array();
@@ -84,17 +84,17 @@ class modWurthPunchout extends DolibarrModules
 		$this->boxes = array();
 		$this->cronjobs = array(
 			0 => array(
-				'label' => 'WurthPunchoutCronCleanupLabel',
+				'label' => 'LmdbWurthPunchoutCronCleanupLabel',
 				'jobtype' => 'method',
-				'class' => '/wurthpunchout/class/wurthpunchoutcron.class.php',
-				'objectname' => 'WurthPunchoutCron',
+				'class' => '/lmdbwurthpunchout/class/lmdbwurthpunchoutcron.class.php',
+				'objectname' => 'LmdbWurthPunchoutCron',
 				'method' => 'runCleanup',
 				'parameters' => '',
-				'comment' => 'WurthPunchoutCronCleanupComment',
+				'comment' => 'LmdbWurthPunchoutCronCleanupComment',
 				'frequency' => 1,
 				'unitfrequency' => 86400,
 				'status' => 0,
-				'test' => 'isModEnabled("wurthpunchout")',
+				'test' => 'isModEnabled("lmdbwurthpunchout")',
 				'priority' => 50,
 			),
 		);
@@ -130,7 +130,7 @@ class modWurthPunchout extends DolibarrModules
 	public function init($options = '')
 	{
 		$sql = array();
-		$result = $this->_load_tables('/wurthpunchout/sql/');
+		$result = $this->_load_tables('/lmdbwurthpunchout/sql/');
 		if ($result < 0) {
 			return -1;
 		}
@@ -176,10 +176,10 @@ class modWurthPunchout extends DolibarrModules
 		);
 
 		foreach ($units as $code => $label) {
-			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'wurthpunchout_unitmap (entity, wurth_unit, fk_unit, label, date_creation)';
+			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_unitmap (entity, wurth_unit, fk_unit, label, date_creation)';
 			$sql .= ' SELECT '.((int) $conf->entity).", '".$this->db->escape($code)."', NULL, '".$this->db->escape($label)."', '".$this->db->idate(dol_now())."'";
 			$sql .= ' WHERE NOT EXISTS (';
-			$sql .= 'SELECT 1 FROM '.MAIN_DB_PREFIX.'wurthpunchout_unitmap';
+			$sql .= 'SELECT 1 FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_unitmap';
 			$sql .= ' WHERE entity = '.((int) $conf->entity)." AND wurth_unit = '".$this->db->escape($code)."'";
 			$sql .= ')';
 			$this->db->query($sql);

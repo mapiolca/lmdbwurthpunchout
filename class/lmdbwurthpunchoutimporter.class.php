@@ -5,14 +5,14 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
-require_once __DIR__.'/wurthpunchoutconfig.class.php';
-require_once __DIR__.'/wurthpunchoutsecurity.class.php';
-require_once __DIR__.'/wurthpunchoutsession.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutsession.class.php';
 
 /**
  * Import normalized Punchout lines into Dolibarr.
  */
-class WurthPunchoutImporter
+class LmdbWurthPunchoutImporter
 {
 	/** @var DoliDB */
 	private $db;
@@ -33,7 +33,7 @@ class WurthPunchoutImporter
 	/**
 	 * Import a returned session.
 	 *
-	 * @param WurthPunchoutSession $session Session
+	 * @param LmdbWurthPunchoutSession $session Session
 	 * @param User                 $user    User
 	 * @return array<string,mixed>
 	 */
@@ -57,7 +57,7 @@ class WurthPunchoutImporter
 		if ((int) $order->entity !== (int) $conf->entity) {
 			throw new RuntimeException('Supplier order belongs to another entity');
 		}
-		if ((int) $order->socid !== (int) $session->fk_soc || (int) $session->fk_soc !== WurthPunchoutConfig::getInt('FK_SOC')) {
+		if ((int) $order->socid !== (int) $session->fk_soc || (int) $session->fk_soc !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
 			throw new RuntimeException('Supplier order does not match configured WURTH supplier');
 		}
 		if ((int) $order->statut !== CommandeFournisseur::STATUS_DRAFT) {
@@ -88,7 +88,7 @@ class WurthPunchoutImporter
 				$productId = $this->findProductByGeneratedRef((string) $line['vendor_ref']);
 			}
 			if ($productId <= 0) {
-				if (!WurthPunchoutConfig::getInt('CREATE_PRODUCTS', 1)) {
+				if (!LmdbWurthPunchoutConfig::getInt('CREATE_PRODUCTS', 1)) {
 					throw new RuntimeException('Product not found and product creation is disabled: '.$line['vendor_ref']);
 				}
 				$productId = $this->createProduct($line, $user);
@@ -151,10 +151,10 @@ class WurthPunchoutImporter
 		if ((float) $line['qty'] <= 0) {
 			throw new RuntimeException('Invalid quantity for '.$line['vendor_ref']);
 		}
-		if ((float) $line['unit_price_ht'] <= 0 && !WurthPunchoutConfig::getInt('ALLOW_ZERO_PRICE', 0)) {
+		if ((float) $line['unit_price_ht'] <= 0 && !LmdbWurthPunchoutConfig::getInt('ALLOW_ZERO_PRICE', 0)) {
 			throw new RuntimeException('Zero price refused for '.$line['vendor_ref']);
 		}
-		if (strtoupper((string) $line['currency']) !== WurthPunchoutConfig::getExpectedCurrency()) {
+		if (strtoupper((string) $line['currency']) !== LmdbWurthPunchoutConfig::getExpectedCurrency()) {
 			throw new RuntimeException('Unexpected currency for '.$line['vendor_ref']);
 		}
 	}
@@ -172,7 +172,7 @@ class WurthPunchoutImporter
 			return 0;
 		}
 
-		$sql = 'SELECT fk_unit FROM '.MAIN_DB_PREFIX.'wurthpunchout_unitmap';
+		$sql = 'SELECT fk_unit FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_unitmap';
 		$sql .= " WHERE wurth_unit = '".$this->db->escape($unitCode)."'";
 		$sql .= ' AND entity IN ('.((int) $entity).', 1)';
 		$sql .= ' ORDER BY entity DESC';
@@ -267,7 +267,7 @@ class WurthPunchoutImporter
 
 		$qtyForSupplierPrice = max(1, (float) ($line['price_unit'] ?? 1));
 		$priceForSupplierQty = (float) ($line['price'] ?? $line['unit_price_ht']);
-		if (WurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') !== 'divide') {
+		if (LmdbWurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') !== 'divide') {
 			$qtyForSupplierPrice = 1;
 			$priceForSupplierQty = (float) $line['unit_price_ht'];
 		}
@@ -338,7 +338,7 @@ class WurthPunchoutImporter
 	 */
 	private function buildProductRef($vendorRef)
 	{
-		return WurthPunchoutConfig::getString('PRODUCT_REF_PREFIX', 'WURTH-').WurthPunchoutSecurity::normalizeSupplierReference($vendorRef);
+		return LmdbWurthPunchoutConfig::getString('PRODUCT_REF_PREFIX', 'WURTH-').LmdbWurthPunchoutSecurity::normalizeSupplierReference($vendorRef);
 	}
 
 	/**

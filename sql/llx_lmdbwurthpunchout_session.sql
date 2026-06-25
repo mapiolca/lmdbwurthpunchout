@@ -1,4 +1,4 @@
-CREATE TABLE llx_wurthpunchout_session (
+CREATE TABLE llx_lmdbwurthpunchout_session (
 	rowid integer AUTO_INCREMENT PRIMARY KEY,
 	entity integer DEFAULT 1 NOT NULL,
 	token_hash varchar(64) NOT NULL,

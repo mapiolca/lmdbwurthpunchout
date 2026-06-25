@@ -1,0 +1,6 @@
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_entity (entity);
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_session (fk_session);
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_vendor_ref (entity, vendor_ref);
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_product (fk_product);
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_supplier_price (fk_product_fournisseur_price);
+ALTER TABLE llx_lmdbwurthpunchout_session_line ADD INDEX idx_lmdbwurthpunchout_line_orderdet (fk_commandefourndet);

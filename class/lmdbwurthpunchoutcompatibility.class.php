@@ -4,7 +4,7 @@
 /**
  * Compatibility checks for WURTH Punchout.
  */
-class WurthPunchoutCompatibility
+class LmdbWurthPunchoutCompatibility
 {
 	/**
 	 * Check Dolibarr version.
@@ -41,36 +41,36 @@ class WurthPunchoutCompatibility
 	{
 		return array(
 			'module_base' => array(
-				'label' => 'WurthPunchoutFeatureBase',
-				'description' => 'WurthPunchoutFeatureBaseDescription',
+				'label' => 'LmdbWurthPunchoutFeatureBase',
+				'description' => 'LmdbWurthPunchoutFeatureBaseDescription',
 				'min_dolibarr' => '20.0.0',
 				'min_php' => '8.0.0',
 				'methods' => array('dol_buildpath', 'newToken'),
 			),
 			'oci' => array(
-				'label' => 'WurthPunchoutFeatureOci',
-				'description' => 'WurthPunchoutFeatureOciDescription',
+				'label' => 'LmdbWurthPunchoutFeatureOci',
+				'description' => 'LmdbWurthPunchoutFeatureOciDescription',
 				'min_dolibarr' => '20.0.0',
 				'min_php' => '8.0.0',
 				'methods' => array('dol_mktime'),
 			),
 			'cxml' => array(
-				'label' => 'WurthPunchoutFeatureCxml',
-				'description' => 'WurthPunchoutFeatureCxmlDescription',
+				'label' => 'LmdbWurthPunchoutFeatureCxml',
+				'description' => 'LmdbWurthPunchoutFeatureCxmlDescription',
 				'min_dolibarr' => '20.0.0',
 				'min_php' => '8.0.0',
 				'classes' => array('DOMDocument', 'DOMXPath'),
 			),
 			'curl_cxml_setup' => array(
-				'label' => 'WurthPunchoutFeatureCxmlCurl',
-				'description' => 'WurthPunchoutFeatureCxmlCurlDescription',
+				'label' => 'LmdbWurthPunchoutFeatureCxmlCurl',
+				'description' => 'LmdbWurthPunchoutFeatureCxmlCurlDescription',
 				'min_dolibarr' => '20.0.0',
 				'min_php' => '8.0.0',
 				'functions' => array('curl_init'),
 			),
 			'native_secret_encryption' => array(
-				'label' => 'WurthPunchoutFeatureSecretEncryption',
-				'description' => 'WurthPunchoutFeatureSecretEncryptionDescription',
+				'label' => 'LmdbWurthPunchoutFeatureSecretEncryption',
+				'description' => 'LmdbWurthPunchoutFeatureSecretEncryptionDescription',
 				'min_dolibarr' => '20.0.0',
 				'min_php' => '8.0.0',
 				'functions' => array('dolEncrypt', 'dolDecrypt'),

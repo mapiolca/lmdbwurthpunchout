@@ -1,12 +1,12 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
-require_once __DIR__.'/wurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
 
 /**
  * cXML PunchOut setup client.
  */
-class WurthPunchoutCxmlClient
+class LmdbWurthPunchoutCxmlClient
 {
 	/**
 	 * Build cXML setup request.
@@ -17,7 +17,7 @@ class WurthPunchoutCxmlClient
 	 */
 	public function buildSetupRequest($returnUrl, $buyerCookie)
 	{
-		$payloadId = uniqid('wurthpunchout-', true).'@dolibarr';
+		$payloadId = uniqid('lmdbwurthpunchout-', true).'@dolibarr';
 		$timestamp = gmdate('Y-m-d\TH:i:s\Z');
 
 		$doc = new DOMDocument('1.0', 'UTF-8');
@@ -29,16 +29,16 @@ class WurthPunchoutCxmlClient
 		$doc->appendChild($cxml);
 
 		$header = $cxml->appendChild($doc->createElement('Header'));
-		$this->appendCredential($doc, $header, 'From', WurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), WurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
-		$this->appendCredential($doc, $header, 'To', WurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN'), WurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY'));
+		$this->appendCredential($doc, $header, 'From', LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
+		$this->appendCredential($doc, $header, 'To', LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY'));
 		$sender = $header->appendChild($doc->createElement('Sender'));
-		$this->appendCredentialContent($doc, $sender, WurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), WurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
+		$this->appendCredentialContent($doc, $sender, LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
 		$secret = $sender->appendChild($doc->createElement('SharedSecret'));
-		$secret->appendChild($doc->createTextNode(WurthPunchoutConfig::getSecret('CXML_SHARED_SECRET')));
+		$secret->appendChild($doc->createTextNode(LmdbWurthPunchoutConfig::getSecret('CXML_SHARED_SECRET')));
 		$sender->appendChild($doc->createElement('UserAgent', 'Dolibarr WURTH Punchout'));
 
 		$request = $cxml->appendChild($doc->createElement('Request'));
-		$request->setAttribute('deploymentMode', WurthPunchoutConfig::getString('CXML_MODE', 'production') === 'test' ? 'test' : 'production');
+		$request->setAttribute('deploymentMode', LmdbWurthPunchoutConfig::getString('CXML_MODE', 'production') === 'test' ? 'test' : 'production');
 		$punchout = $request->appendChild($doc->createElement('PunchOutSetupRequest'));
 		$punchout->setAttribute('operation', 'create');
 		$buyerCookieNode = $punchout->appendChild($doc->createElement('BuyerCookie'));
@@ -48,7 +48,7 @@ class WurthPunchoutCxmlClient
 		$browserPostUrl->appendChild($doc->createTextNode($returnUrl));
 		$supplierSetup = $punchout->appendChild($doc->createElement('SupplierSetup'));
 		$supplierSetupUrl = $supplierSetup->appendChild($doc->createElement('URL'));
-		$supplierSetupUrl->appendChild($doc->createTextNode(WurthPunchoutConfig::getString('CXML_URL')));
+		$supplierSetupUrl->appendChild($doc->createTextNode(LmdbWurthPunchoutConfig::getString('CXML_URL')));
 
 		return (string) $doc->saveXML();
 	}
@@ -67,7 +67,7 @@ class WurthPunchoutCxmlClient
 		}
 
 		$xml = $this->buildSetupRequest($returnUrl, $buyerCookie);
-		$ch = curl_init(WurthPunchoutConfig::getString('CXML_URL'));
+		$ch = curl_init(LmdbWurthPunchoutConfig::getString('CXML_URL'));
 		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8'));

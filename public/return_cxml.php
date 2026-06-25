@@ -34,10 +34,10 @@ if (!$res) {
 	die('Include of main fails');
 }
 
-require_once __DIR__.'/../class/wurthpunchoutsession.class.php';
-require_once __DIR__.'/../class/wurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
 
-$langs->loadLangs(array('wurthpunchout@wurthpunchout', 'errors'));
+$langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
 
 $token = GETPOST('token', 'alphanohtml');
 $entity = GETPOSTINT('entity');
@@ -49,46 +49,41 @@ if ($rawPayload === '') {
 	$rawPayload = (string) file_get_contents('php://input');
 }
 
-$session = new WurthPunchoutSession($db);
+$session = new LmdbWurthPunchoutSession($db);
 if ($token === '' || $entity <= 0 || $session->fetchByToken($token, $entity) <= 0) {
-	accessforbidden($langs->trans('WurthPunchoutInvalidToken'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutInvalidToken'));
 }
 if ($session->protocol !== 'CXML') {
-	accessforbidden($langs->trans('WurthPunchoutProtocolMismatch'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutProtocolMismatch'));
 }
 if ($session->isExpired()) {
-	$session->setStatus(WurthPunchoutSession::STATUS_EXPIRED);
-	accessforbidden($langs->trans('WurthPunchoutSessionExpired'));
+	$session->setStatus(LmdbWurthPunchoutSession::STATUS_EXPIRED);
+	accessforbidden($langs->trans('LmdbWurthPunchoutSessionExpired'));
 }
-if (!in_array($session->status, array(WurthPunchoutSession::STATUS_CREATED, WurthPunchoutSession::STATUS_SENT), true)) {
-	accessforbidden($langs->trans('WurthPunchoutSessionAlreadyUsed'));
+if (!in_array($session->status, array(LmdbWurthPunchoutSession::STATUS_CREATED, LmdbWurthPunchoutSession::STATUS_SENT), true)) {
+	accessforbidden($langs->trans('LmdbWurthPunchoutSessionAlreadyUsed'));
 }
 
 try {
-	$parser = new WurthPunchoutParser();
+	$parser = new LmdbWurthPunchoutParser();
 	$lines = $parser->parseCxml($rawPayload);
 	if (empty($lines)) {
-		throw new RuntimeException($langs->trans('WurthPunchoutNoLineReturned'));
+		throw new RuntimeException($langs->trans('LmdbWurthPunchoutNoLineReturned'));
 	}
 	if ($session->storeReturn($rawPayload, $lines) < 0) {
 		throw new RuntimeException($session->error);
 	}
-	llxHeader('', $langs->trans('WurthPunchoutReturnTitle'));
-	print load_fiche_titre($langs->trans('WurthPunchoutReturnTitle'), '', 'technic');
-	print '<p>'.$langs->trans('WurthPunchoutBasketReceived').'</p>';
-	print '<form method="POST" action="'.dol_buildpath('/wurthpunchout/public/import.php', 1).'">';
-	print '<input type="hidden" name="token" value="'.newToken().'">';
-	print '<input type="hidden" name="action" value="import">';
-	print '<input type="hidden" name="id" value="'.((int) $session->id).'">';
-	print '<input class="button button-save" type="submit" value="'.$langs->trans('WurthPunchoutImportBasket').'">';
-	print '</form>';
+	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
+	print '<p>'.$langs->trans('LmdbWurthPunchoutBasketReceived').'</p>';
+	print '<p><a class="button button-save" href="'.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.((int) $session->id).'">'.$langs->trans('LmdbWurthPunchoutImportBasket').'</a></p>';
 	llxFooter();
 	exit;
 } catch (Exception $e) {
-	$session->setStatus(WurthPunchoutSession::STATUS_ERROR, $e->getMessage());
-	llxHeader('', $langs->trans('WurthPunchoutReturnTitle'));
-	print load_fiche_titre($langs->trans('WurthPunchoutReturnTitle'), '', 'technic');
-	print '<div class="error">'.$langs->trans('WurthPunchoutReturnFailed').' '.dol_escape_htmltag($e->getMessage()).'</div>';
+	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
+	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
+	print '<div class="error">'.$langs->trans('LmdbWurthPunchoutReturnFailed').' '.dol_escape_htmltag($e->getMessage()).'</div>';
 	llxFooter();
 	exit;
 }

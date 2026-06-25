@@ -16,13 +16,13 @@ if (!$res) {
 	die('Include of main fails');
 }
 
-require_once __DIR__.'/../lib/wurthpunchout.lib.php';
-require_once __DIR__.'/../class/wurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../lib/lmdbwurthpunchout.lib.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 
-$langs->loadLangs(array('admin', 'orders', 'companies', 'wurthpunchout@wurthpunchout'));
+$langs->loadLangs(array('admin', 'orders', 'companies', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
-if (!$user->admin && !WurthPunchoutSecurity::canReadSessions($user)) {
+if (!$user->admin && !LmdbWurthPunchoutSecurity::canReadSessions($user)) {
 	accessforbidden();
 }
 
@@ -43,6 +43,7 @@ if (!$sortorder) {
 $search_status = GETPOST('search_status', 'alphanohtml');
 $search_protocol = GETPOST('search_protocol', 'alpha');
 $form = new Form($db);
+$pageUrl = dol_buildpath('/lmdbwurthpunchout/admin/sessions.php', 1);
 
 $param = '';
 if ($search_status !== '') {
@@ -53,7 +54,7 @@ if ($search_protocol !== '') {
 }
 
 $sql = 'SELECT t.rowid, t.protocol, t.status, t.datec, t.date_return, t.date_import, t.import_count, t.error_message, c.ref AS order_ref, s.nom AS thirdparty_name, u.login AS user_login';
-$sql .= ' FROM '.MAIN_DB_PREFIX.'wurthpunchout_session AS t';
+$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session AS t';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'commande_fournisseur AS c ON c.rowid = t.fk_commandefourn';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = t.fk_soc';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = t.fk_user';
@@ -74,38 +75,38 @@ if (!$resql) {
 }
 $num = $db->num_rows($resql);
 
-llxHeader('', $langs->trans('WurthPunchoutSessions'));
-wurthpunchoutPrintAdminHeader('sessions');
+llxHeader('', $langs->trans('LmdbWurthPunchoutSessions'));
+lmdbwurthpunchoutPrintAdminHeader('sessions');
 
-print_barre_liste($langs->trans('WurthPunchoutSessions'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, -1, 'technic', 0, '', '', $limit);
+print_barre_liste($langs->trans('LmdbWurthPunchoutSessions'), $page, $pageUrl, $param, $sortfield, $sortorder, '', $num, -1, 'technic', 0, '', '', $limit);
 
-print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'">';
+print '<form method="GET" action="'.$pageUrl.'">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre_filter">';
 print '<td></td>';
 $protocolOptions = array('OCI' => 'OCI', 'CXML' => 'cXML');
 $statusOptions = array(
-	'created' => $langs->trans('WurthPunchoutStatusCreated'),
-	'sent' => $langs->trans('WurthPunchoutStatusSent'),
-	'returned' => $langs->trans('WurthPunchoutStatusReturned'),
-	'imported' => $langs->trans('WurthPunchoutStatusImported'),
-	'expired' => $langs->trans('WurthPunchoutStatusExpired'),
-	'error' => $langs->trans('WurthPunchoutStatusError'),
+	'created' => $langs->trans('LmdbWurthPunchoutStatusCreated'),
+	'sent' => $langs->trans('LmdbWurthPunchoutStatusSent'),
+	'returned' => $langs->trans('LmdbWurthPunchoutStatusReturned'),
+	'imported' => $langs->trans('LmdbWurthPunchoutStatusImported'),
+	'expired' => $langs->trans('LmdbWurthPunchoutStatusExpired'),
+	'error' => $langs->trans('LmdbWurthPunchoutStatusError'),
 );
 print '<td>'.$form->selectarray('search_protocol', $protocolOptions, strtoupper($search_protocol), 1, 0, 0, '', 0, 0, 0, '', 'maxwidth100').'</td>';
 print '<td>'.$form->selectarray('search_status', $statusOptions, $search_status, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth150').'</td>';
-print '<td colspan="6" class="right"><input class="button small" type="submit" value="'.$langs->trans('Search').'"> <a class="button small" href="'.$_SERVER['PHP_SELF'].'">'.$langs->trans('Reset').'</a></td>';
+print '<td colspan="6" class="right"><input class="button small" type="submit" value="'.$langs->trans('Search').'"> <a class="button small" href="'.$pageUrl.'">'.$langs->trans('Reset').'</a></td>';
 print '</tr>';
 print '<tr class="liste_titre">';
-print_liste_field_titre('Ref', $_SERVER['PHP_SELF'], 'c.ref', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Protocol', $_SERVER['PHP_SELF'], 't.protocol', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 't.status', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Company', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('User', $_SERVER['PHP_SELF'], 'u.login', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('DateCreation', $_SERVER['PHP_SELF'], 't.datec', $param, '', '', $sortfield, $sortorder, 'center');
-print_liste_field_titre('WurthPunchoutReturnedAt', $_SERVER['PHP_SELF'], 't.date_return', $param, '', '', $sortfield, $sortorder, 'center');
-print_liste_field_titre('WurthPunchoutImportedAt', $_SERVER['PHP_SELF'], 't.date_import', $param, '', '', $sortfield, $sortorder, 'center');
-print_liste_field_titre('Lines', $_SERVER['PHP_SELF'], 't.import_count', $param, '', '', $sortfield, $sortorder, 'right');
+print_liste_field_titre('Ref', $pageUrl, 'c.ref', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('Protocol', $pageUrl, 't.protocol', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('Status', $pageUrl, 't.status', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('Company', $pageUrl, 's.nom', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('User', $pageUrl, 'u.login', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('DateCreation', $pageUrl, 't.datec', $param, '', '', $sortfield, $sortorder, 'center');
+print_liste_field_titre('LmdbWurthPunchoutReturnedAt', $pageUrl, 't.date_return', $param, '', '', $sortfield, $sortorder, 'center');
+print_liste_field_titre('LmdbWurthPunchoutImportedAt', $pageUrl, 't.date_import', $param, '', '', $sortfield, $sortorder, 'center');
+print_liste_field_titre('Lines', $pageUrl, 't.import_count', $param, '', '', $sortfield, $sortorder, 'right');
 print '</tr>';
 
 $i = 0;
@@ -114,7 +115,7 @@ while ($i < min($num, $limit)) {
 	print '<tr class="oddeven">';
 	print '<td>'.dol_escape_htmltag($obj->order_ref).'</td>';
 	print '<td>'.dol_escape_htmltag($obj->protocol).'</td>';
-	print '<td>'.wurthpunchoutStatusBadge($obj->status).'</td>';
+	print '<td>'.lmdbwurthpunchoutStatusBadge($obj->status).'</td>';
 	print '<td>'.dol_escape_htmltag($obj->thirdparty_name).'</td>';
 	print '<td>'.dol_escape_htmltag($obj->user_login).'</td>';
 	print '<td class="center">'.dol_print_date($db->jdate($obj->datec), 'dayhour').'</td>';
@@ -144,7 +145,7 @@ llxFooter();
  * @param string $status Status
  * @return string
  */
-function wurthpunchoutStatusBadge($status)
+function lmdbwurthpunchoutStatusBadge($status)
 {
 	global $langs;
 
@@ -156,6 +157,14 @@ function wurthpunchoutStatusBadge($status)
 		'expired' => 'badge-status8',
 		'error' => 'badge-status8',
 	);
+	$labels = array(
+		'created' => 'LmdbWurthPunchoutStatusCreated',
+		'sent' => 'LmdbWurthPunchoutStatusSent',
+		'returned' => 'LmdbWurthPunchoutStatusReturned',
+		'imported' => 'LmdbWurthPunchoutStatusImported',
+		'expired' => 'LmdbWurthPunchoutStatusExpired',
+		'error' => 'LmdbWurthPunchoutStatusError',
+	);
 	$class = $classes[$status] ?? 'badge-status0';
-	return '<span class="badge '.$class.'">'.$langs->trans('WurthPunchoutStatus'.ucfirst($status)).'</span>';
+	return '<span class="badge '.$class.'">'.$langs->trans($labels[$status] ?? 'Unknown').'</span>';
 }

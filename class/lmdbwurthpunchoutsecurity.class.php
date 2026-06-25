@@ -4,7 +4,7 @@
 /**
  * Security helper for WURTH Punchout.
  */
-class WurthPunchoutSecurity
+class LmdbWurthPunchoutSecurity
 {
 	/**
 	 * Check a module right with admin bypass.
@@ -21,10 +21,10 @@ class WurthPunchoutSecurity
 		}
 
 		if (method_exists($user, 'hasRight')) {
-			return (bool) $user->hasRight('wurthpunchout', $object, $action);
+			return (bool) $user->hasRight('lmdbwurthpunchout', $object, $action);
 		}
 
-		return !empty($user->rights->wurthpunchout->{$object}->{$action});
+		return !empty($user->rights->lmdbwurthpunchout->{$object}->{$action});
 	}
 
 	/**

@@ -16,18 +16,18 @@ if (!$res) {
 	die('Include of main fails');
 }
 
-require_once __DIR__.'/../lib/wurthpunchout.lib.php';
-require_once __DIR__.'/../class/wurthpunchoutcompatibility.class.php';
-require_once __DIR__.'/../class/wurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../lib/lmdbwurthpunchout.lib.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcompatibility.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 
-$langs->loadLangs(array('admin', 'wurthpunchout@wurthpunchout'));
+$langs->loadLangs(array('admin', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
-if (!$user->admin && !WurthPunchoutSecurity::canConfigure($user)) {
+if (!$user->admin && !LmdbWurthPunchoutSecurity::canConfigure($user)) {
 	accessforbidden();
 }
 
 llxHeader('', $langs->trans('Compatibility'));
-wurthpunchoutPrintAdminHeader('compatibility');
+lmdbwurthpunchoutPrintAdminHeader('compatibility');
 
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('Environment').'</td></tr>';
@@ -47,7 +47,7 @@ print '<th>'.$langs->trans('Status').'</th>';
 print '<th>'.$langs->trans('Reason').'</th>';
 print '</tr>';
 
-foreach (WurthPunchoutCompatibility::getFeatureStatuses() as $code => $feature) {
+foreach (LmdbWurthPunchoutCompatibility::getFeatureStatuses() as $code => $feature) {
 	print '<tr class="oddeven">';
 	print '<td>'.dol_escape_htmltag($code).'</td>';
 	print '<td>'.$langs->trans($feature['label']).'</td>';

@@ -4,7 +4,7 @@
 /**
  * Configuration helper for WURTH Punchout.
  */
-class WurthPunchoutConfig
+class LmdbWurthPunchoutConfig
 {
 	/**
 	 * Get string constant.
@@ -15,7 +15,7 @@ class WurthPunchoutConfig
 	 */
 	public static function getString($name, $default = '')
 	{
-		$key = 'WURTHPUNCHOUT_'.$name;
+		$key = 'LMDBWURTHPUNCHOUT_'.$name;
 		if (function_exists('getDolGlobalString')) {
 			return getDolGlobalString($key, $default);
 		}
@@ -33,7 +33,7 @@ class WurthPunchoutConfig
 	 */
 	public static function getInt($name, $default = 0)
 	{
-		$key = 'WURTHPUNCHOUT_'.$name;
+		$key = 'LMDBWURTHPUNCHOUT_'.$name;
 		if (function_exists('getDolGlobalInt')) {
 			return (int) getDolGlobalInt($key, $default);
 		}
@@ -107,7 +107,7 @@ class WurthPunchoutConfig
 	{
 		global $conf;
 
-		return dolibarr_set_const($db, 'WURTHPUNCHOUT_'.$name, $value, $type, 0, '', (int) $conf->entity);
+		return dolibarr_set_const($db, 'LMDBWURTHPUNCHOUT_'.$name, $value, $type, 0, '', (int) $conf->entity);
 	}
 
 	/**
@@ -138,7 +138,7 @@ class WurthPunchoutConfig
 	public static function getReturnUrl($protocol, $token, $entity)
 	{
 		$file = strtoupper($protocol) === 'CXML' ? 'return_cxml.php' : 'return_oci.php';
-		return dol_buildpath('/wurthpunchout/public/'.$file, 2).'?entity='.(int) $entity.'&token='.urlencode($token);
+		return dol_buildpath('/lmdbwurthpunchout/public/'.$file, 2).'?entity='.(int) $entity.'&token='.urlencode($token);
 	}
 
 	/**
@@ -164,27 +164,27 @@ class WurthPunchoutConfig
 		$missing = array();
 
 		if (self::getInt('FK_SOC') <= 0) {
-			$missing[] = 'WURTHPUNCHOUT_FK_SOC';
+			$missing[] = 'LMDBWURTHPUNCHOUT_FK_SOC';
 		}
 
 		if ($protocol === 'OCI') {
 			foreach (array('OCI_URL', 'OCI_ORGANIZATION', 'OCI_NAME', 'OCI_PASSWORD') as $key) {
 				if ($key === 'OCI_PASSWORD') {
 					if (self::getSecret($key) === '') {
-						$missing[] = 'WURTHPUNCHOUT_'.$key;
+						$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 					}
 				} elseif (self::getString($key) === '') {
-					$missing[] = 'WURTHPUNCHOUT_'.$key;
+					$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 				}
 			}
 		} elseif ($protocol === 'CXML') {
 			foreach (array('CXML_URL', 'CXML_SHARED_SECRET', 'CXML_CUSTOMER_DOMAIN', 'CXML_CUSTOMER_IDENTITY', 'CXML_SUPPLIER_DOMAIN', 'CXML_SUPPLIER_IDENTITY') as $key) {
 				if ($key === 'CXML_SHARED_SECRET') {
 					if (self::getSecret($key) === '') {
-						$missing[] = 'WURTHPUNCHOUT_'.$key;
+						$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 					}
 				} elseif (self::getString($key) === '') {
-					$missing[] = 'WURTHPUNCHOUT_'.$key;
+					$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 				}
 			}
 		}

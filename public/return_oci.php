@@ -38,17 +38,17 @@ if (!$res) {
 	die('Include of main fails');
 }
 
-require_once __DIR__.'/../class/wurthpunchoutsession.class.php';
-require_once __DIR__.'/../class/wurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
 
-$langs->loadLangs(array('wurthpunchout@wurthpunchout', 'errors'));
+$langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
 
 $token = GETPOST('token', 'alphanohtml');
 $entity = GETPOSTINT('entity');
 
-$session = new WurthPunchoutSession($db);
+$session = new LmdbWurthPunchoutSession($db);
 if ($token === '' || $entity <= 0 || $session->fetchByToken($token, $entity) <= 0) {
-	accessforbidden($langs->trans('WurthPunchoutInvalidToken'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutInvalidToken'));
 }
 
 $payload = getOciPayload();
@@ -61,10 +61,9 @@ handlePunchoutReturn($session, 'OCI', json_encode($payload, JSON_UNESCAPED_UNICO
  */
 function getOciPayload()
 {
-	$rawPayload = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
-	if (!is_array($rawPayload)) {
-		$rawPayload = array();
-	}
+	$rawGet = filter_input_array(INPUT_GET, FILTER_UNSAFE_RAW);
+	$rawPost = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
+	$rawPayload = array_merge(is_array($rawGet) ? $rawGet : array(), is_array($rawPost) ? $rawPost : array());
 
 	$payload = array();
 	foreach ($rawPayload as $key => $value) {
@@ -86,7 +85,7 @@ function getOciPayload()
 /**
  * Store OCI return.
  *
- * @param WurthPunchoutSession $session Session
+ * @param LmdbWurthPunchoutSession $session Session
  * @param string               $protocol Protocol
  * @param string               $rawPayload Raw payload
  * @param array<string,mixed>  $payload Array payload
@@ -97,31 +96,31 @@ function handlePunchoutReturn($session, $protocol, $rawPayload, $payload)
 	global $langs;
 
 	if ($session->protocol !== $protocol) {
-		accessforbidden($langs->trans('WurthPunchoutProtocolMismatch'));
+		accessforbidden($langs->trans('LmdbWurthPunchoutProtocolMismatch'));
 	}
 	if ($session->isExpired()) {
-		$session->setStatus(WurthPunchoutSession::STATUS_EXPIRED);
-		accessforbidden($langs->trans('WurthPunchoutSessionExpired'));
+		$session->setStatus(LmdbWurthPunchoutSession::STATUS_EXPIRED);
+		accessforbidden($langs->trans('LmdbWurthPunchoutSessionExpired'));
 	}
-	if (!in_array($session->status, array(WurthPunchoutSession::STATUS_CREATED, WurthPunchoutSession::STATUS_SENT), true)) {
-		accessforbidden($langs->trans('WurthPunchoutSessionAlreadyUsed'));
+	if (!in_array($session->status, array(LmdbWurthPunchoutSession::STATUS_CREATED, LmdbWurthPunchoutSession::STATUS_SENT), true)) {
+		accessforbidden($langs->trans('LmdbWurthPunchoutSessionAlreadyUsed'));
 	}
 
 	try {
-		$parser = new WurthPunchoutParser();
+		$parser = new LmdbWurthPunchoutParser();
 		$lines = $parser->parseOci($payload);
 		if (empty($lines)) {
-			throw new RuntimeException($langs->trans('WurthPunchoutNoLineReturned'));
+			throw new RuntimeException($langs->trans('LmdbWurthPunchoutNoLineReturned'));
 		}
 		if ($session->storeReturn($rawPayload, $lines) < 0) {
 			throw new RuntimeException($session->error);
 		}
 		renderImportRedirect($session);
 	} catch (Exception $e) {
-		$session->setStatus(WurthPunchoutSession::STATUS_ERROR, $e->getMessage());
-		llxHeader('', $langs->trans('WurthPunchoutReturnTitle'));
-		print load_fiche_titre($langs->trans('WurthPunchoutReturnTitle'), '', 'technic');
-		print '<div class="error">'.$langs->trans('WurthPunchoutReturnFailed').' '.dol_escape_htmltag($e->getMessage()).'</div>';
+		$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
+		llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
+		print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
+		print '<div class="error">'.$langs->trans('LmdbWurthPunchoutReturnFailed').' '.dol_escape_htmltag($e->getMessage()).'</div>';
 		llxFooter();
 		exit;
 	}
@@ -130,22 +129,17 @@ function handlePunchoutReturn($session, $protocol, $rawPayload, $payload)
 /**
  * Render import continuation form.
  *
- * @param WurthPunchoutSession $session Session
+ * @param LmdbWurthPunchoutSession $session Session
  * @return void
  */
 function renderImportRedirect($session)
 {
 	global $langs;
 
-	llxHeader('', $langs->trans('WurthPunchoutReturnTitle'));
-	print load_fiche_titre($langs->trans('WurthPunchoutReturnTitle'), '', 'technic');
-	print '<p>'.$langs->trans('WurthPunchoutBasketReceived').'</p>';
-	print '<form method="POST" action="'.dol_buildpath('/wurthpunchout/public/import.php', 1).'">';
-	print '<input type="hidden" name="token" value="'.newToken().'">';
-	print '<input type="hidden" name="action" value="import">';
-	print '<input type="hidden" name="id" value="'.((int) $session->id).'">';
-	print '<input class="button button-save" type="submit" value="'.$langs->trans('WurthPunchoutImportBasket').'">';
-	print '</form>';
+	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
+	print '<p>'.$langs->trans('LmdbWurthPunchoutBasketReceived').'</p>';
+	print '<p><a class="button button-save" href="'.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.((int) $session->id).'">'.$langs->trans('LmdbWurthPunchoutImportBasket').'</a></p>';
 	llxFooter();
 	exit;
 }

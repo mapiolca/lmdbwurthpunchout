@@ -17,51 +17,51 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
-require_once __DIR__.'/../class/wurthpunchoutsession.class.php';
-require_once __DIR__.'/../class/wurthpunchoutimporter.class.php';
-require_once __DIR__.'/../class/wurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutimporter.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 
-$langs->loadLangs(array('wurthpunchout@wurthpunchout', 'errors', 'orders'));
+$langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors', 'orders'));
 
-if (!isModEnabled('wurthpunchout')) {
+if (!isModEnabled('lmdbwurthpunchout')) {
 	accessforbidden();
 }
-if (!WurthPunchoutSecurity::canUsePunchout($user)) {
+if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
 	accessforbidden();
 }
 
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
-$session = new WurthPunchoutSession($db);
+$session = new LmdbWurthPunchoutSession($db);
 if ($id <= 0 || $session->fetch($id) <= 0) {
-	accessforbidden($langs->trans('WurthPunchoutSessionNotFound'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutSessionNotFound'));
 }
 
 if ((int) $session->entity !== (int) $conf->entity) {
-	accessforbidden($langs->trans('WurthPunchoutWrongEntity'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutWrongEntity'));
 }
 if ((int) $session->fk_user !== (int) $user->id && empty($user->admin)) {
-	accessforbidden($langs->trans('WurthPunchoutSessionUserMismatch'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutSessionUserMismatch'));
 }
 
 if ($action === 'import') {
-	if (!WurthPunchoutSecurity::checkToken()) {
+	if (!LmdbWurthPunchoutSecurity::checkToken()) {
 		accessforbidden('Bad token');
 	}
-	if ($session->status !== WurthPunchoutSession::STATUS_RETURNED) {
-		accessforbidden($langs->trans('WurthPunchoutSessionAlreadyUsed'));
+	if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
+		accessforbidden($langs->trans('LmdbWurthPunchoutSessionAlreadyUsed'));
 	}
 
 	$db->begin();
 	try {
-		$importer = new WurthPunchoutImporter($db);
+		$importer = new LmdbWurthPunchoutImporter($db);
 		$summary = $importer->importSession($session, $user);
 		if ($session->markImported($summary) < 0) {
 			throw new RuntimeException($session->error);
 		}
 		$db->commit();
 
-		$message = $langs->trans('WurthPunchoutImportSuccess', (int) $summary['lines_added'], (int) $summary['products_created'], (int) $summary['supplier_prices_updated']);
+		$message = $langs->trans('LmdbWurthPunchoutImportSuccess', (int) $summary['lines_added'], (int) $summary['products_created'], (int) $summary['supplier_prices_updated']);
 		if (!empty($summary['warnings'])) {
 			$message .= '<br>'.dol_escape_htmltag(implode(', ', $summary['warnings']));
 		}
@@ -70,21 +70,21 @@ if ($action === 'import') {
 		exit;
 	} catch (Exception $e) {
 		$db->rollback();
-		$session->setStatus(WurthPunchoutSession::STATUS_ERROR, $e->getMessage());
-		setEventMessages($langs->trans('WurthPunchoutImportFailed').' '.$e->getMessage(), null, 'errors');
+		$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
+		setEventMessages($langs->trans('LmdbWurthPunchoutImportFailed').' '.$e->getMessage(), null, 'errors');
 		header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn);
 		exit;
 	}
 }
 
-llxHeader('', $langs->trans('WurthPunchoutImportBasket'));
-print load_fiche_titre($langs->trans('WurthPunchoutImportBasket'), '', 'technic');
+llxHeader('', $langs->trans('LmdbWurthPunchoutImportBasket'));
+print load_fiche_titre($langs->trans('LmdbWurthPunchoutImportBasket'), '', 'technic');
 
-if ($session->status !== WurthPunchoutSession::STATUS_RETURNED) {
-	print '<div class="warning">'.$langs->trans('WurthPunchoutSessionAlreadyUsed').'</div>';
+if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
+	print '<div class="warning">'.$langs->trans('LmdbWurthPunchoutSessionAlreadyUsed').'</div>';
 } else {
 	$lines = $session->fetchLines();
-	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+	print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="import">';
 	print '<input type="hidden" name="id" value="'.((int) $session->id).'">';
@@ -111,7 +111,7 @@ if ($session->status !== WurthPunchoutSession::STATUS_RETURNED) {
 		print '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
 	}
 	print '</table>';
-	print '<div class="center"><input class="button button-save" type="submit" value="'.$langs->trans('WurthPunchoutImportBasket').'"></div>';
+	print '<div class="center"><input class="button button-save" type="submit" value="'.$langs->trans('LmdbWurthPunchoutImportBasket').'"></div>';
 	print '</form>';
 }
 

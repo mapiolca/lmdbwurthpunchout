@@ -19,20 +19,20 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
-require_once __DIR__.'/../class/wurthpunchoutconfig.class.php';
-require_once __DIR__.'/../class/wurthpunchoutsecurity.class.php';
-require_once __DIR__.'/../class/wurthpunchoutsession.class.php';
-require_once __DIR__.'/../class/wurthpunchoutcxmlclient.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutconfig.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlclient.class.php';
 
-$langs->loadLangs(array('wurthpunchout@wurthpunchout', 'errors', 'orders'));
+$langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors', 'orders'));
 
-if (!isModEnabled('wurthpunchout')) {
+if (!isModEnabled('lmdbwurthpunchout')) {
 	accessforbidden();
 }
-if (!WurthPunchoutSecurity::checkToken()) {
+if (!LmdbWurthPunchoutSecurity::checkToken()) {
 	accessforbidden('Bad token');
 }
-if (!WurthPunchoutSecurity::canUsePunchout($user)) {
+if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
 	accessforbidden();
 }
 
@@ -44,50 +44,50 @@ if ($id <= 0 || $order->fetch($id) <= 0) {
 $order->fetch_thirdparty();
 
 if ((int) $order->entity !== (int) $conf->entity) {
-	accessforbidden($langs->trans('WurthPunchoutWrongEntity'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutWrongEntity'));
 }
-if ((int) $order->socid !== WurthPunchoutConfig::getInt('FK_SOC')) {
-	accessforbidden($langs->trans('WurthPunchoutWrongSupplier'));
+if ((int) $order->socid !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
+	accessforbidden($langs->trans('LmdbWurthPunchoutWrongSupplier'));
 }
 if ((int) $order->statut !== CommandeFournisseur::STATUS_DRAFT) {
-	accessforbidden($langs->trans('WurthPunchoutOrderMustBeDraft'));
+	accessforbidden($langs->trans('LmdbWurthPunchoutOrderMustBeDraft'));
 }
 
-$protocol = WurthPunchoutConfig::getProtocol();
-if (!WurthPunchoutConfig::isComplete($protocol)) {
-	accessforbidden($langs->trans('WurthPunchoutIncompleteConfiguration'));
+$protocol = LmdbWurthPunchoutConfig::getProtocol();
+if (!LmdbWurthPunchoutConfig::isComplete($protocol)) {
+	accessforbidden($langs->trans('LmdbWurthPunchoutIncompleteConfiguration'));
 }
 
-$rawToken = WurthPunchoutSecurity::generateToken();
-$session = new WurthPunchoutSession($db);
+$rawToken = LmdbWurthPunchoutSecurity::generateToken();
+$session = new LmdbWurthPunchoutSession($db);
 if ($session->createFromOrder($order, $user, $protocol, $rawToken) <= 0) {
 	setEventMessages($session->error, $session->errors, 'errors');
 	header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $order->id);
 	exit;
 }
 
-$returnUrl = WurthPunchoutConfig::getReturnUrl($protocol, $rawToken, (int) $conf->entity);
-$session->setStatus(WurthPunchoutSession::STATUS_SENT);
+$returnUrl = LmdbWurthPunchoutConfig::getReturnUrl($protocol, $rawToken, (int) $conf->entity);
+$session->setStatus(LmdbWurthPunchoutSession::STATUS_SENT);
 
 try {
 	if ($protocol === 'CXML') {
-		$client = new WurthPunchoutCxmlClient();
+		$client = new LmdbWurthPunchoutCxmlClient();
 		$targetUrl = $client->getStartPageUrl($returnUrl, $rawToken);
 		renderLaunchPage($targetUrl, 'GET', array(), $order->id);
 	} else {
 		$params = array(
-			'ORGANIZATION' => WurthPunchoutConfig::getString('OCI_ORGANIZATION'),
-			'NAME' => WurthPunchoutConfig::getString('OCI_NAME'),
-			'PASSWORD' => WurthPunchoutConfig::getSecret('OCI_PASSWORD'),
+			'ORGANIZATION' => LmdbWurthPunchoutConfig::getString('OCI_ORGANIZATION'),
+			'NAME' => LmdbWurthPunchoutConfig::getString('OCI_NAME'),
+			'PASSWORD' => LmdbWurthPunchoutConfig::getSecret('OCI_PASSWORD'),
 			'HOOK_URL' => $returnUrl,
 		);
-		$method = strtoupper(WurthPunchoutConfig::getString('OCI_METHOD', 'GET'));
-		$targetUrl = WurthPunchoutConfig::getString('OCI_URL');
+		$method = strtoupper(LmdbWurthPunchoutConfig::getString('OCI_METHOD', 'GET'));
+		$targetUrl = LmdbWurthPunchoutConfig::getString('OCI_URL');
 		renderLaunchPage($targetUrl, $method === 'POST' ? 'POST' : 'GET', $params, $order->id);
 	}
 } catch (Exception $e) {
-	$session->setStatus(WurthPunchoutSession::STATUS_ERROR, $e->getMessage());
-	setEventMessages($langs->trans('WurthPunchoutLaunchFailed').' '.$e->getMessage(), null, 'errors');
+	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
+	setEventMessages($langs->trans('LmdbWurthPunchoutLaunchFailed').' '.$e->getMessage(), null, 'errors');
 	header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $order->id);
 	exit;
 }
@@ -105,7 +105,7 @@ function renderLaunchPage($targetUrl, $method, $params, $orderId)
 {
 	global $langs;
 
-	$mode = WurthPunchoutConfig::getOpenMode();
+	$mode = LmdbWurthPunchoutConfig::getOpenMode();
 
 	if ($method === 'GET' && $mode !== 'iframe') {
 		$query = http_build_query($params);
@@ -114,26 +114,26 @@ function renderLaunchPage($targetUrl, $method, $params, $orderId)
 		exit;
 	}
 
-	llxHeader('', $langs->trans('WurthPunchoutButton'));
-	print load_fiche_titre($langs->trans('WurthPunchoutButton'), '', 'technic');
+	llxHeader('', $langs->trans('LmdbWurthPunchoutButton'));
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutButton'), '', 'technic');
 
 	if ($mode === 'iframe' && $method === 'GET') {
 		$query = http_build_query($params);
 		$url = $query !== '' ? $targetUrl.(strpos($targetUrl, '?') === false ? '?' : '&').$query : $targetUrl;
 		print '<iframe src="'.dol_escape_htmltag($url).'" class="centpercent" style="height:75vh;border:1px solid #ddd;"></iframe>';
-		print '<div class="opacitymedium">'.$langs->trans('WurthPunchoutIframeFallback').'</div>';
+		print '<div class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutIframeFallback').'</div>';
 		print '<p><a class="button" target="_blank" rel="noopener" href="'.dol_escape_htmltag($url).'">'.$langs->trans('OpenInNewWindow').'</a></p>';
 		llxFooter();
 		exit;
 	}
 
-	print '<form id="wurthpunchout_launch" method="'.dol_escape_htmltag($method).'" action="'.dol_escape_htmltag($targetUrl).'">';
+	print '<form id="lmdbwurthpunchout_launch" method="'.dol_escape_htmltag($method).'" action="'.dol_escape_htmltag($targetUrl).'">';
 	foreach ($params as $key => $value) {
 		print '<input type="hidden" name="'.dol_escape_htmltag($key).'" value="'.dol_escape_htmltag($value).'">';
 	}
 	print '<noscript><input class="button" type="submit" value="'.$langs->trans('Continue').'"></noscript>';
 	print '</form>';
-	print '<script>document.getElementById("wurthpunchout_launch").submit();</script>';
+	print '<script>document.getElementById("lmdbwurthpunchout_launch").submit();</script>';
 	print '<p><a class="button" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $orderId.'">'.$langs->trans('BackToSupplierOrder').'</a></p>';
 
 	llxFooter();
