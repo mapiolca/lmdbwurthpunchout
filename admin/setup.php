@@ -168,7 +168,7 @@ print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbWurthPunchou
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('Protocol').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_PROTOCOL', $protocolOptions, LmdbWurthPunchoutConfig::getProtocol(), 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutSupplier').'</td><td>';
 if (method_exists($form, 'select_company')) {
-	print $form->select_company(LmdbWurthPunchoutConfig::getInt('FK_SOC'), 'LMDBWURTHPUNCHOUT_FK_SOC', 's.fournisseur = 1', 1, 0, 0, array(), 0, 'minwidth300');
+	print $form->select_company(LmdbWurthPunchoutConfig::getInt('FK_SOC'), 'LMDBWURTHPUNCHOUT_FK_SOC', '(s.fournisseur:=:1)', 1, 0, 0, array(), 0, 'minwidth300');
 } else {
 	print '<input class="flat maxwidth100" type="text" name="LMDBWURTHPUNCHOUT_FK_SOC" value="'.LmdbWurthPunchoutConfig::getInt('FK_SOC').'">';
 }
