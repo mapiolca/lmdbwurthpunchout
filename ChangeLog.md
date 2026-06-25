@@ -17,3 +17,4 @@
 - Correction du filtre fournisseur de la page de réglages avec la syntaxe USF requise par Dolibarr 24.
 - Correction de la référence du picto pour l'affichage dans la liste des modules Dolibarr.
 - Ajout de l'action de création ou complétion du tiers fournisseur WURTH France depuis les réglages.
+- Correction de la classe de hooks pour éviter une redéclaration PHP entre deux variantes de casse.

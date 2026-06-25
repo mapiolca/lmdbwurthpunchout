@@ -13,7 +13,7 @@ require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
 /**
  * Hook class.
  */
-class ActionsLmdbWurthPunchout
+class ActionsLmdbwurthpunchout
 {
 	/** @var DoliDB */
 	public $db;
@@ -104,11 +104,4 @@ class ActionsLmdbWurthPunchout
 
 		return 0;
 	}
-}
-
-/**
- * Dolibarr v20 hook manager builds the class name with ucfirst($modulekey).
- */
-class ActionsLmdbwurthpunchout extends ActionsLmdbWurthPunchout
-{
 }
