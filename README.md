@@ -50,7 +50,7 @@ Paramètres principaux :
 - Protocole : `OCI` ou `cXML`
 - Tiers fournisseur WURTH
 - Action de création ou de complétion du tiers fournisseur `WURTH FRANCE`
-- Mode d'ouverture : popup, nouvel onglet ou iframe
+- Mode d'ouverture : modale sur la commande fournisseur, nouvelle fenêtre ou nouvel onglet
 - Devise attendue
 - TVA par défaut
 - Création des produits absents

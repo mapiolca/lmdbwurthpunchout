@@ -37,6 +37,8 @@ if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
 }
 
 $id = GETPOSTINT('id');
+$embed = GETPOSTINT('embed');
+$external = GETPOSTINT('external');
 $order = new CommandeFournisseur($db);
 if ($id <= 0 || $order->fetch($id) <= 0) {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
@@ -73,7 +75,7 @@ try {
 	if ($protocol === 'CXML') {
 		$client = new LmdbWurthPunchoutCxmlClient();
 		$targetUrl = $client->getStartPageUrl($returnUrl, $rawToken);
-		renderLaunchPage($targetUrl, 'GET', array(), $order->id);
+		renderLaunchPage($targetUrl, 'GET', array(), $order->id, $embed, $external);
 	} else {
 		$params = array(
 			'ORGANIZATION' => LmdbWurthPunchoutConfig::getString('OCI_ORGANIZATION'),
@@ -83,7 +85,7 @@ try {
 		);
 		$method = strtoupper(LmdbWurthPunchoutConfig::getString('OCI_METHOD', 'GET'));
 		$targetUrl = LmdbWurthPunchoutConfig::getString('OCI_URL');
-		renderLaunchPage($targetUrl, $method === 'POST' ? 'POST' : 'GET', $params, $order->id);
+		renderLaunchPage($targetUrl, $method === 'POST' ? 'POST' : 'GET', $params, $order->id, $embed, $external);
 	}
 } catch (Exception $e) {
 	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
@@ -99,15 +101,17 @@ try {
  * @param string              $method    GET or POST
  * @param array<string,string> $params   Parameters
  * @param int                 $orderId   Supplier order id
+ * @param int                 $embed     1 when launched in the order modal iframe
+ * @param int                 $external  1 to force external opening
  * @return void
  */
-function renderLaunchPage($targetUrl, $method, $params, $orderId)
+function renderLaunchPage($targetUrl, $method, $params, $orderId, $embed = 0, $external = 0)
 {
 	global $langs;
 
-	$mode = LmdbWurthPunchoutConfig::getOpenMode();
+	$mode = $external ? 'popup' : LmdbWurthPunchoutConfig::getOpenMode();
 
-	if ($method === 'GET' && $mode !== 'iframe') {
+	if ($method === 'GET' && ($mode !== 'iframe' || $embed)) {
 		$query = http_build_query($params);
 		$url = $query !== '' ? $targetUrl.(strpos($targetUrl, '?') === false ? '?' : '&').$query : $targetUrl;
 		header('Location: '.$url);

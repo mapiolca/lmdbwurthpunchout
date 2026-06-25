@@ -92,7 +92,8 @@ function lmdbwurthpunchoutRenderImportDone($session, $summary)
 	print '<p><a class="button button-save" href="'.$orderUrl.'">'.$langs->trans('BackToSupplierOrder').'</a></p>';
 	print '<script>';
 	print 'var u='.json_encode($orderUrl).';';
-	print 'if (window.opener && !window.opener.closed) { window.opener.location.href = u; window.close(); }';
+	print 'if (window.parent && window.parent !== window && typeof window.parent.lmdbWurthPunchoutCloseModal === "function") { window.parent.lmdbWurthPunchoutCloseModal(u); }';
+	print 'else if (window.opener && !window.opener.closed) { window.opener.location.href = u; window.close(); }';
 	print 'else if (window.top && window.top !== window.self) { window.top.location.href = u; }';
 	print 'else { window.setTimeout(function(){ window.location.href = u; }, 800); }';
 	print '</script>';

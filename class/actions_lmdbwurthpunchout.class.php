@@ -98,10 +98,50 @@ class ActionsLmdbwurthpunchout
 			print '<a class="butAction" href="'.$url.'" onclick="window.open(this.href, \'lmdbwurthpunchout\', \'width=1200,height=850,scrollbars=yes,resizable=yes\'); return false;">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
 		} elseif ($mode === 'newtab') {
 			print '<a class="butAction" target="_blank" rel="noopener" href="'.$url.'">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
+		} elseif ($mode === 'iframe') {
+			$this->printPunchoutModalButton($url, (int) $object->id);
 		} else {
 			print '<a class="butAction" href="'.$url.'">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Print a Dolibarr modal launcher.
+	 *
+	 * @param string $url     Start URL
+	 * @param int    $orderId Supplier order id
+	 * @return void
+	 */
+	private function printPunchoutModalButton($url, $orderId)
+	{
+		global $langs;
+
+		$modalId = 'lmdbwurthpunchout_modal_'.$orderId;
+		$buttonId = 'lmdbwurthpunchout_button_'.$orderId;
+		$iframeId = 'lmdbwurthpunchout_iframe_'.$orderId;
+		$embedUrl = $url.'&embed=1';
+		$fallbackUrl = $url.'&external=1';
+
+		print '<a id="'.$buttonId.'" class="butAction" href="'.dol_escape_htmltag($embedUrl).'">'.$langs->trans('LmdbWurthPunchoutButton').'</a>';
+		print '<div id="'.$modalId.'" style="display:none;">';
+		print '<iframe id="'.$iframeId.'" src="about:blank" class="centpercent" style="height:72vh;border:1px solid #ddd;"></iframe>';
+		print '<div class="opacitymedium marginbottomonly">'.$langs->trans('LmdbWurthPunchoutIframeFallback').'</div>';
+		print '<p><a class="button" target="_blank" rel="noopener" href="'.dol_escape_htmltag($fallbackUrl).'">'.$langs->trans('LmdbWurthPunchoutOpenExternal').'</a></p>';
+		print '</div>';
+
+		print '<script>';
+		print 'jQuery(function($){';
+		print 'var modal=$('.json_encode('#'.$modalId).');';
+		print 'var frame=$('.json_encode('#'.$iframeId).');';
+		print 'var button=$('.json_encode('#'.$buttonId).');';
+		print 'var fallbackUrl='.json_encode($fallbackUrl).';';
+		print 'if(!$.fn.dialog){button.on("click",function(e){e.preventDefault();window.open(fallbackUrl,"lmdbwurthpunchout","width=1200,height=850,scrollbars=yes,resizable=yes");});return;}';
+		print 'modal.dialog({autoOpen:false,modal:true,width:Math.max(320,Math.min($(window).width()-40,1280)),height:Math.max(480,Math.min($(window).height()-40,900)),title:'.json_encode($langs->trans('LmdbWurthPunchoutButton')).',close:function(){frame.attr("src","about:blank");}});';
+		print 'button.on("click",function(e){e.preventDefault();frame.attr("src",this.href);modal.dialog("open");});';
+		print 'window.lmdbWurthPunchoutCloseModal=function(url){modal.dialog("close");window.location.href=url;};';
+		print '});';
+		print '</script>';
 	}
 }
