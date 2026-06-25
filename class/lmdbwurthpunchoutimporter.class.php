@@ -31,6 +31,34 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
+	 * Import a stored returned session transactionally.
+	 *
+	 * @param LmdbWurthPunchoutSession $session Session
+	 * @param User                     $user    User
+	 * @return array<string,mixed>
+	 */
+	public function importStoredSession($session, $user)
+	{
+		if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
+			throw new RuntimeException('Punchout session is not importable');
+		}
+
+		$this->db->begin();
+		try {
+			$summary = $this->importSession($session, $user);
+			if ($session->markImported($summary) < 0) {
+				throw new RuntimeException($session->error);
+			}
+			$this->db->commit();
+
+			return $summary;
+		} catch (Exception $e) {
+			$this->db->rollback();
+			throw $e;
+		}
+	}
+
+	/**
 	 * Import a returned session.
 	 *
 	 * @param LmdbWurthPunchoutSession $session Session

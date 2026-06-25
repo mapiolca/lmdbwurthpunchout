@@ -5,6 +5,9 @@
  * Public cXML return endpoint.
  */
 
+if (!defined('NOSESSION')) {
+	define('NOSESSION', 1);
+}
 if (!defined('NOLOGIN')) {
 	define('NOLOGIN', 1);
 }
@@ -36,6 +39,7 @@ if (!$res) {
 
 require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
+require_once __DIR__.'/return_common.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
 
@@ -67,23 +71,9 @@ if (!in_array($session->status, array(LmdbWurthPunchoutSession::STATUS_CREATED, 
 try {
 	$parser = new LmdbWurthPunchoutParser();
 	$lines = $parser->parseCxml($rawPayload);
-	if (empty($lines)) {
-		throw new RuntimeException($langs->trans('LmdbWurthPunchoutNoLineReturned'));
-	}
-	if ($session->storeReturn($rawPayload, $lines) < 0) {
-		throw new RuntimeException($session->error);
-	}
-	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
-	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
-	print '<p>'.$langs->trans('LmdbWurthPunchoutBasketReceived').'</p>';
-	print '<p><a class="button button-save" href="'.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.((int) $session->id).'">'.$langs->trans('LmdbWurthPunchoutImportBasket').'</a></p>';
-	llxFooter();
-	exit;
+	$summary = lmdbwurthpunchoutStoreAndImportReturn($session, 'CXML', $rawPayload, $lines);
+	lmdbwurthpunchoutRenderImportDone($session, $summary);
 } catch (Exception $e) {
 	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
-	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
-	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
-	print '<div class="error">'.$langs->trans('LmdbWurthPunchoutReturnFailed').' '.dol_escape_htmltag($e->getMessage()).'</div>';
-	llxFooter();
-	exit;
+	lmdbwurthpunchoutRenderReturnError($e);
 }

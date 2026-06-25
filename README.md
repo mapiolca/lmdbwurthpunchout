@@ -71,9 +71,9 @@ La page de réglages permet de créer ou compléter le tiers fournisseur `WURTH 
 2. Le bouton `Punchout WURTH` apparaît sur la fiche.
 3. Le module crée une session Punchout temporaire et envoie l'utilisateur vers WURTH.
 4. WURTH retourne le panier sur l'URL publique du module.
-5. Le module stocke le payload brut et les lignes normalisées.
-6. L'utilisateur confirme l'import depuis Dolibarr.
-7. Le module crée ou retrouve les produits, met à jour les prix fournisseur et ajoute les lignes dans la commande.
+5. Le module stocke le payload brut et les lignes normalisées, puis importe automatiquement le panier.
+6. Le module crée ou retrouve les produits, met à jour les prix fournisseur et ajoute les lignes dans la commande.
+7. L'utilisateur est renvoyé vers la commande fournisseur.
 
 ## Multicompany
 

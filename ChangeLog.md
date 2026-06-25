@@ -21,3 +21,5 @@
 - Correction du helper interne de session pour éviter une collision avec `CommonObject::fetchCommon()`.
 - Ajout du constructeur de session pour initialiser le handler base de données.
 - Correction du parsing OCI pour accepter les champs `NEW_ITEM-*` reçus par PHP sous forme de tableaux indexés.
+- Import automatique du panier dès le retour WURTH, sans écran de confirmation intermédiaire.
+- Correction des endpoints de retour WURTH pour éviter la création d’une session Dolibarr anonyme qui pouvait remplacer la session utilisateur active.

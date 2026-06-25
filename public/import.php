@@ -52,14 +52,9 @@ if ($action === 'import') {
 		accessforbidden($langs->trans('LmdbWurthPunchoutSessionAlreadyUsed'));
 	}
 
-	$db->begin();
 	try {
 		$importer = new LmdbWurthPunchoutImporter($db);
-		$summary = $importer->importSession($session, $user);
-		if ($session->markImported($summary) < 0) {
-			throw new RuntimeException($session->error);
-		}
-		$db->commit();
+		$summary = $importer->importStoredSession($session, $user);
 
 		$message = $langs->trans('LmdbWurthPunchoutImportSuccess', (int) $summary['lines_added'], (int) $summary['products_created'], (int) $summary['supplier_prices_updated']);
 		if (!empty($summary['warnings'])) {
@@ -69,7 +64,6 @@ if ($action === 'import') {
 		header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn);
 		exit;
 	} catch (Exception $e) {
-		$db->rollback();
 		$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
 		setEventMessages($langs->trans('LmdbWurthPunchoutImportFailed').' '.$e->getMessage(), null, 'errors');
 		header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn);
