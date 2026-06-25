@@ -13,3 +13,4 @@
 - Ajout des tables SQL `lmdbwurthpunchout_session`, `lmdbwurthpunchout_session_line` et `lmdbwurthpunchout_unitmap`.
 - Ajout des traductions `fr_FR` et `en_US`.
 - Ajout de la règle Multicompany V1 : refus d'import depuis une entité différente de l'entité propriétaire de la commande.
+- Ajout du picto carré WURTH pour le module.
