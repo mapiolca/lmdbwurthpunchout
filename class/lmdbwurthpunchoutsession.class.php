@@ -51,6 +51,16 @@ class LmdbWurthPunchoutSession extends CommonObject
 	public $ip_address;
 
 	/**
+	 * Constructor.
+	 *
+	 * @param DoliDB $db Database handler
+	 */
+	public function __construct($db)
+	{
+		$this->db = $db;
+	}
+
+	/**
 	 * Create a session for a supplier order.
 	 *
 	 * @param CommandeFournisseur $order    Supplier order

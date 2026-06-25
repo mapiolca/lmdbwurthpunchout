@@ -19,3 +19,4 @@
 - Ajout de l'action de création ou complétion du tiers fournisseur WURTH France depuis les réglages.
 - Correction de la classe de hooks pour éviter une redéclaration PHP entre deux variantes de casse.
 - Correction du helper interne de session pour éviter une collision avec `CommonObject::fetchCommon()`.
+- Ajout du constructeur de session pour initialiser le handler base de données.
