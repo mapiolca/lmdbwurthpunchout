@@ -30,9 +30,8 @@ class modLmdbWurthPunchout extends DolibarrModules
 		global $langs, $conf;
 
 		$this->db = $db;
-
-		$this->numero = 510700;
-		$this->rights_class = 'lmdbwurthpunchout';
+		$this->numero = 450015;
+		$this->rights_class = 'Les Métiers du Bâtiment';
 		$this->family = 'interface';
 		$this->module_position = '90';
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
@@ -40,9 +39,9 @@ class modLmdbWurthPunchout extends DolibarrModules
 		$this->descriptionlong = 'LmdbWurthPunchoutModuleDescriptionLong';
 		$this->version = '1.0.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
-		$this->picto = 'technic';
-		$this->editor_name = 'Pierre Ardoin';
-		$this->editor_url = '';
+		$this->picto = 'Les Métiers du Bâtiment';
+		$this->editor_name = 'Les Métiers du Bâtiment';
+		$this->editor_url = 'https://lesmetiersdubatiment.fr';
 
 		$this->module_parts = array(
 			'hooks' => array(
