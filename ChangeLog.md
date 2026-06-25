@@ -24,3 +24,4 @@
 - Import automatique du panier dès le retour WURTH, sans écran de confirmation intermédiaire.
 - Correction des endpoints de retour WURTH pour éviter la création d’une session Dolibarr anonyme qui pouvait remplacer la session utilisateur active.
 - Ajout du mode d’ouverture en modale directement depuis la fiche commande fournisseur, avec secours en nouvelle fenêtre.
+- Complément des traductions manquantes et alignement de l’en-tête des réglages sur la présentation native Dolibarr.

@@ -33,7 +33,7 @@ lmdbwurthpunchoutPrintAdminHeader('about');
 
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('About').'</td></tr>';
-print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('Module').'</td><td>LmdbWurthPunchout</td></tr>';
+print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('Module').'</td><td>'.$langs->trans('LmdbWurthPunchout').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Version').'</td><td>'.dol_escape_htmltag($module->version).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Publisher').'</td><td>Pierre Ardoin &lt;developpeur@lesmetiersdubatiment.fr&gt;</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Description').'</td><td>'.$langs->trans('LmdbWurthPunchoutModuleDescriptionLong').'</td></tr>';

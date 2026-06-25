@@ -126,7 +126,7 @@ function renderLaunchPage($targetUrl, $method, $params, $orderId, $embed = 0, $e
 		$url = $query !== '' ? $targetUrl.(strpos($targetUrl, '?') === false ? '?' : '&').$query : $targetUrl;
 		print '<iframe src="'.dol_escape_htmltag($url).'" class="centpercent" style="height:75vh;border:1px solid #ddd;"></iframe>';
 		print '<div class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutIframeFallback').'</div>';
-		print '<p><a class="button" target="_blank" rel="noopener" href="'.dol_escape_htmltag($url).'">'.$langs->trans('OpenInNewWindow').'</a></p>';
+		print '<p><a class="button" target="_blank" rel="noopener" href="'.dol_escape_htmltag($url).'">'.$langs->trans('LmdbWurthPunchoutOpenExternal').'</a></p>';
 		llxFooter();
 		exit;
 	}

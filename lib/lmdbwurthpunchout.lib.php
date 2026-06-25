@@ -67,9 +67,18 @@ function lmdbwurthpunchoutPrintAdminHeader($activeTab)
 	global $langs;
 
 	$head = lmdbwurthpunchoutAdminPrepareHead();
-	print dol_get_fiche_head($head, $activeTab, $langs->trans('LmdbWurthPunchoutSetup'), -1, 'technic');
-	print '<div class="underbanner clearboth right">'.lmdbwurthpunchoutModuleListLink().'</div>';
-	print '<div class="clearboth"></div>';
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutSetup'), lmdbwurthpunchoutModuleListLink(), 'title_setup');
+	print dol_get_fiche_head($head, $activeTab, '', -1);
+
+	$helpKeys = array(
+		'settings' => 'LmdbWurthPunchoutSettingsPageHelp',
+		'compatibility' => 'LmdbWurthPunchoutCompatibilityPageHelp',
+		'sessions' => 'LmdbWurthPunchoutSessionsPageHelp',
+		'about' => 'LmdbWurthPunchoutAboutPageHelp',
+	);
+	if (!empty($helpKeys[$activeTab])) {
+		print '<span class="opacitymedium">'.$langs->trans($helpKeys[$activeTab]).'</span><br><br>';
+	}
 }
 
 /**
