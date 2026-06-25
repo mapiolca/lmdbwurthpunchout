@@ -57,6 +57,23 @@ if (count($ociLines) !== 1 || abs($ociLines[0]['unit_price_ht'] - 0.1) > 0.00000
 	throw new RuntimeException('OCI parser test failed');
 }
 
+$ociPhpPostShape = array(
+	'NEW_ITEM-QUANTITY' => array(1 => '100.000'),
+	'NEW_ITEM-DESCRIPTION' => array(1 => 'ECR-H-DIN934-I8I-CLE17-(A2K)-M10'),
+	'NEW_ITEM-UNIT' => array(1 => 'PCE'),
+	'NEW_ITEM-PRICE' => array(1 => '10.000'),
+	'NEW_ITEM-PRICEUNIT' => array(1 => '100'),
+	'NEW_ITEM-CURRENCY' => array(1 => 'EUR'),
+	'NEW_ITEM-LEADTIME' => array(1 => '1'),
+	'NEW_ITEM-VENDORMAT' => array(1 => '031710    005  100'),
+	'NEW_ITEM-EXT_PRODUCT_ID' => array(1 => '031710    005  100'),
+);
+
+$ociPhpPostShapeLines = $parser->parseOci($ociPhpPostShape);
+if (count($ociPhpPostShapeLines) !== 1 || $ociPhpPostShapeLines[0]['vendor_ref'] !== '031710    005  100') {
+	throw new RuntimeException('OCI parser PHP POST shape test failed');
+}
+
 $cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrderMessageHeader><Total><Money currency="EUR">0</Money></Total></PunchOutOrderMessageHeader><ItemIn quantity="2"><ItemID><SupplierPartID>0890108715063</SupplierPartID></ItemID><ItemDetail><UnitPrice><Money currency="EUR">3.50</Money></UnitPrice><Description xml:lang="fr"><ShortName>Nettoyant freins</ShortName>BIDON NETTOYANT FREINS 5 L</Description><UnitOfMeasure>EA</UnitOfMeasure><Classification domain="UNSPSC">47132101</Classification></ItemDetail><Tax><TaxDetail category="FullTax" percentageRate="20.000"></TaxDetail></Tax></ItemIn></PunchOutOrderMessage></Message></cXML>';
 $cxmlLines = $parser->parseCxml($cxml);
 if (count($cxmlLines) !== 1 || $cxmlLines[0]['vendor_ref'] !== '0890108715063' || abs($cxmlLines[0]['unit_price_ht'] - 3.5) > 0.000001) {

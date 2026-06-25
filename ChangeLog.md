@@ -20,3 +20,4 @@
 - Correction de la classe de hooks pour éviter une redéclaration PHP entre deux variantes de casse.
 - Correction du helper interne de session pour éviter une collision avec `CommonObject::fetchCommon()`.
 - Ajout du constructeur de session pour initialiser le handler base de données.
+- Correction du parsing OCI pour accepter les champs `NEW_ITEM-*` reçus par PHP sous forme de tableaux indexés.

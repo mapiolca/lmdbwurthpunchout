@@ -61,22 +61,41 @@ handlePunchoutReturn($session, 'OCI', json_encode($payload, JSON_UNESCAPED_UNICO
  */
 function getOciPayload()
 {
-	$rawGet = filter_input_array(INPUT_GET, FILTER_UNSAFE_RAW);
-	$rawPost = filter_input_array(INPUT_POST, FILTER_UNSAFE_RAW);
-	$rawPayload = array_merge(is_array($rawGet) ? $rawGet : array(), is_array($rawPost) ? $rawPost : array());
+	// OCI fields such as NEW_ITEM-QUANTITY[1] are parsed by PHP as nested arrays.
+	$rawGet = is_array($_GET) ? $_GET : array();
+	$rawPost = is_array($_POST) ? $_POST : array();
+	$rawPayload = array_merge($rawGet, $rawPost);
 
 	$payload = array();
 	foreach ($rawPayload as $key => $value) {
-		if (!preg_match('/^NEW_ITEM-[A-Z0-9_:-]+\[\d+\]$/', (string) $key)) {
+		$key = (string) $key;
+		if (preg_match('/^NEW_ITEM-[A-Z0-9_:-]+\[\d+\]$/i', $key)) {
+			if (is_array($value)) {
+				$value = reset($value);
+			}
+			if (!is_scalar($value)) {
+				continue;
+			}
+			$payload[$key] = dol_string_nohtmltag((string) $value);
 			continue;
 		}
-		if (is_array($value)) {
-			$value = reset($value);
-		}
-		if (!is_scalar($value)) {
+
+		if (!preg_match('/^NEW_ITEM-[A-Z0-9_:-]+$/i', $key) || !is_array($value)) {
 			continue;
 		}
-		$payload[(string) $key] = dol_string_nohtmltag((string) $value);
+
+		foreach ($value as $index => $indexedValue) {
+			if (!preg_match('/^\d+$/', (string) $index)) {
+				continue;
+			}
+			if (is_array($indexedValue)) {
+				$indexedValue = reset($indexedValue);
+			}
+			if (!is_scalar($indexedValue)) {
+				continue;
+			}
+			$payload[$key.'['.((int) $index).']'] = dol_string_nohtmltag((string) $indexedValue);
+		}
 	}
 
 	return $payload;

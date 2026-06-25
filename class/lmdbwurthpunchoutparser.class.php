@@ -19,16 +19,31 @@ class LmdbWurthPunchoutParser
 		$items = array();
 
 		foreach ($payload as $key => $value) {
-			if (!preg_match('/^NEW_ITEM-([A-Z0-9_:-]+)\[(\d+)\]$/', (string) $key, $matches)) {
+			if (preg_match('/^NEW_ITEM-([A-Z0-9_:-]+)\[(\d+)\]$/i', (string) $key, $matches)) {
+				$field = strtoupper($matches[1]);
+				$index = (int) $matches[2];
+				if (!isset($items[$index])) {
+					$items[$index] = array();
+				}
+				$items[$index][$field] = is_array($value) ? reset($value) : $value;
 				continue;
 			}
 
-			$field = $matches[1];
-			$index = (int) $matches[2];
-			if (!isset($items[$index])) {
-				$items[$index] = array();
+			if (!preg_match('/^NEW_ITEM-([A-Z0-9_:-]+)$/i', (string) $key, $matches) || !is_array($value)) {
+				continue;
 			}
-			$items[$index][$field] = is_array($value) ? reset($value) : $value;
+
+			$field = strtoupper($matches[1]);
+			foreach ($value as $index => $indexedValue) {
+				if (!preg_match('/^\d+$/', (string) $index)) {
+					continue;
+				}
+				$index = (int) $index;
+				if (!isset($items[$index])) {
+					$items[$index] = array();
+				}
+				$items[$index][$field] = is_array($indexedValue) ? reset($indexedValue) : $indexedValue;
+			}
 		}
 
 		ksort($items);
