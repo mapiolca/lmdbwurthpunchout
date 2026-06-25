@@ -39,7 +39,7 @@ class modLmdbWurthPunchout extends DolibarrModules
 		$this->descriptionlong = 'LmdbWurthPunchoutModuleDescriptionLong';
 		$this->version = '1.0.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
-		$this->picto = 'object_lmdbwurthpunchout.png@lmdbwurthpunchout';
+		$this->picto = 'lmdbwurthpunchout.png@lmdbwurthpunchout';
 		$this->editor_name = 'Les Métiers du Bâtiment';
 		$this->editor_url = 'https://lesmetiersdubatiment.fr';
 

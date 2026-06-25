@@ -15,3 +15,4 @@
 - Ajout de la règle Multicompany V1 : refus d'import depuis une entité différente de l'entité propriétaire de la commande.
 - Ajout du picto carré WURTH pour le module.
 - Correction du filtre fournisseur de la page de réglages avec la syntaxe USF requise par Dolibarr 24.
+- Correction de la référence du picto pour l'affichage dans la liste des modules Dolibarr.
