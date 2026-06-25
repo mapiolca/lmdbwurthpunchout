@@ -113,7 +113,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$sql .= ' FROM '.MAIN_DB_PREFIX.$this->table_element;
 		$sql .= ' WHERE rowid = '.((int) $id);
 
-		return $this->fetchCommon($sql);
+		return $this->fetchSessionFromSql($sql);
 	}
 
 	/**
@@ -130,16 +130,16 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$sql .= " WHERE token_hash = '".$this->db->escape(LmdbWurthPunchoutSecurity::hashToken($rawToken))."'";
 		$sql .= ' AND entity = '.((int) $entity);
 
-		return $this->fetchCommon($sql);
+		return $this->fetchSessionFromSql($sql);
 	}
 
 	/**
-	 * Common fetch.
+	 * Fetch session from a prepared SQL query.
 	 *
 	 * @param string $sql SQL query
 	 * @return int
 	 */
-	private function fetchCommon($sql)
+	private function fetchSessionFromSql($sql)
 	{
 		$resql = $this->db->query($sql);
 		if (!$resql) {
