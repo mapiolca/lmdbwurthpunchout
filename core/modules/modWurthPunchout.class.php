@@ -31,7 +31,7 @@ class modWurthPunchout extends DolibarrModules
 
 		$this->db = $db;
 
-		$this->numero = 510700;
+		$this->numero = 450015;
 		$this->rights_class = 'wurthpunchout';
 		$this->family = 'interface';
 		$this->module_position = '90';
@@ -40,9 +40,9 @@ class modWurthPunchout extends DolibarrModules
 		$this->descriptionlong = 'WurthPunchoutModuleDescriptionLong';
 		$this->version = '1.0.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
-		$this->picto = 'technic';
-		$this->editor_name = 'Pierre Ardoin';
-		$this->editor_url = '';
+		$this->picto = 'Les Métiers du Bâtiment';
+		$this->editor_name = 'Les Métiers du Bâtiment';
+		$this->editor_url = 'https://lesmetiersdubatiment.fr';
 
 		$this->module_parts = array(
 			'hooks' => array(
