@@ -80,6 +80,25 @@ class LmdbWurthPunchoutSecurity
 	}
 
 	/**
+	 * Check third-party creation permission with admin bypass.
+	 *
+	 * @param User $user User
+	 * @return bool
+	 */
+	public static function canCreateThirdparty($user)
+	{
+		if (!empty($user->admin)) {
+			return true;
+		}
+
+		if (method_exists($user, 'hasRight')) {
+			return (bool) $user->hasRight('societe', 'creer');
+		}
+
+		return !empty($user->rights->societe->creer);
+	}
+
+	/**
 	 * Check a Dolibarr CSRF token.
 	 *
 	 * @return bool

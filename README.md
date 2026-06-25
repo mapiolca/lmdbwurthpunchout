@@ -49,6 +49,7 @@ Paramètres principaux :
 
 - Protocole : `OCI` ou `cXML`
 - Tiers fournisseur WURTH
+- Action de création ou de complétion du tiers fournisseur `WURTH FRANCE`
 - Mode d'ouverture : popup, nouvel onglet ou iframe
 - Devise attendue
 - TVA par défaut
@@ -61,6 +62,8 @@ Paramètres principaux :
 - Correspondances unités WURTH vers unités Dolibarr
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
+
+La page de réglages permet de créer ou compléter le tiers fournisseur `WURTH FRANCE` avec ses informations légales principales, puis de le sélectionner automatiquement comme tiers WURTH du module.
 
 ## Flux utilisateur
 

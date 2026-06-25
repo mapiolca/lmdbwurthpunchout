@@ -21,6 +21,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once __DIR__.'/../lib/lmdbwurthpunchout.lib.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutconfig.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsupplier.class.php';
 
 $langs->loadLangs(array('admin', 'companies', 'products', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
@@ -150,6 +151,31 @@ if ($action === 'delete_unitmap') {
 	exit;
 }
 
+if ($action === 'create_wurth_supplier') {
+	if (!LmdbWurthPunchoutSecurity::checkToken()) {
+		accessforbidden('Bad token');
+	}
+	if (!LmdbWurthPunchoutSecurity::canCreateThirdparty($user)) {
+		accessforbidden($langs->trans('LmdbWurthPunchoutNoThirdpartyCreateRight'));
+	}
+
+	$result = LmdbWurthPunchoutSupplier::createOrUpdateWurthFrance($db, $user);
+	if ($result['result'] < 0) {
+		setEventMessages($langs->trans('LmdbWurthPunchoutWurthFranceSupplierCreateFailed').' '.$result['error'], $result['errors'], 'errors');
+	} else {
+		LmdbWurthPunchoutConfig::set($db, 'FK_SOC', (string) $result['id']);
+		if (!empty($result['created'])) {
+			setEventMessages($langs->trans('LmdbWurthPunchoutWurthFranceSupplierCreated', $result['id']), null, 'mesgs');
+		} elseif (!empty($result['updated'])) {
+			setEventMessages($langs->trans('LmdbWurthPunchoutWurthFranceSupplierUpdated', $result['id']), null, 'mesgs');
+		} else {
+			setEventMessages($langs->trans('LmdbWurthPunchoutWurthFranceSupplierReused', $result['id']), null, 'mesgs');
+		}
+	}
+	header('Location: '.$setupUrl);
+	exit;
+}
+
 llxHeader('', $langs->trans('LmdbWurthPunchoutSetup'));
 lmdbwurthpunchoutPrintAdminHeader('settings');
 
@@ -210,11 +236,64 @@ if (function_exists('ajax_combobox')) {
 }
 
 print '<br>';
+renderWurthFranceSupplierSection($db);
+
+print '<br>';
 print load_fiche_titre($langs->trans('LmdbWurthPunchoutUnitMapping'), '', '');
 renderUnitMapTable($db, $form);
 
 print dol_get_fiche_end();
 llxFooter();
+
+/**
+ * Render WURTH France supplier creation section.
+ *
+ * @param DoliDB $db Database handler
+ * @return void
+ */
+function renderWurthFranceSupplierSection($db)
+{
+	global $langs, $user;
+
+	$socid = LmdbWurthPunchoutConfig::getInt('FK_SOC');
+	$currentSupplier = '<span class="opacitymedium">'.$langs->trans('NotConfigured').'</span>';
+	if ($socid > 0) {
+		$societe = new Societe($db);
+		if ($societe->fetch($socid) > 0) {
+			$currentSupplier = $societe->getNomUrl(1);
+		} else {
+			$currentSupplier = '<span class="opacitymedium">#'.((int) $socid).'</span>';
+		}
+	}
+
+	$data = LmdbWurthPunchoutSupplier::getWurthFranceData($db);
+
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutWurthFranceSupplier'), '', '');
+	print '<table class="noborder centpercent">';
+	print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbWurthPunchoutWurthFranceSupplier').'</td></tr>';
+	print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('LmdbWurthPunchoutCurrentSupplier').'</td><td>'.$currentSupplier.'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Name').'</td><td>'.dol_escape_htmltag($data['name']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Address').'</td><td>'.dol_nl2br(dol_escape_htmltag($data['address'])).'<br>'.dol_escape_htmltag($data['zip'].' '.$data['town']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Phone').'</td><td>'.dol_escape_htmltag($data['phone']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Email').'</td><td>'.dol_escape_htmltag($data['email']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('VATIntra').'</td><td>'.dol_escape_htmltag($data['tva_intra']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutSiren').'</td><td>'.dol_escape_htmltag($data['idprof1']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutSiret').'</td><td>'.dol_escape_htmltag($data['idprof2']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutApe').'</td><td>'.dol_escape_htmltag($data['idprof3']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Action').'</td><td>';
+	if (LmdbWurthPunchoutSecurity::canCreateThirdparty($user)) {
+		print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="create_wurth_supplier">';
+		print '<input type="submit" class="button button-add" value="'.$langs->trans('LmdbWurthPunchoutCreateOrUpdateWurthFranceSupplier').'">';
+		print ' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCreateOrUpdateWurthFranceSupplierHelp').'</span>';
+		print '</form>';
+	} else {
+		print '<span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutNoThirdpartyCreateRight').'</span>';
+	}
+	print '</td></tr>';
+	print '</table>';
+}
 
 /**
  * Render unit mapping table.
