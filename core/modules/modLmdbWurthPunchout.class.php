@@ -32,7 +32,7 @@ class modLmdbWurthPunchout extends DolibarrModules
 		$this->db = $db;
 		$this->numero = 450015;
 		$this->rights_class = 'lmdbwurthpunchout';
-		$this->family = 'interface';
+		$this->family = 'Les Métiers du Bâtiment';
 		$this->module_position = '90';
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbWurthPunchoutModuleDescription';
