@@ -99,19 +99,19 @@ class modLmdbWurthPunchout extends DolibarrModules
 		);
 
 		$r = 0;
-		$this->rights[$r][0] = $this->numero + 1;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'LmdbWurthPunchoutRightUse';
 		$this->rights[$r][4] = 'punchout';
 		$this->rights[$r][5] = 'use';
 		$r++;
 
-		$this->rights[$r][0] = $this->numero + 2;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'LmdbWurthPunchoutRightReadSessions';
 		$this->rights[$r][4] = 'session';
 		$this->rights[$r][5] = 'read';
 		$r++;
 
-		$this->rights[$r][0] = $this->numero + 3;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'LmdbWurthPunchoutRightConfigure';
 		$this->rights[$r][4] = 'setup';
 		$this->rights[$r][5] = 'write';
@@ -134,7 +134,6 @@ class modLmdbWurthPunchout extends DolibarrModules
 			return -1;
 		}
 		$this->initDefaultUnitMap();
-		$this->repairPermissionDefinitions();
 
 		return $this->_init($sql, $options);
 	}
@@ -183,42 +182,6 @@ class modLmdbWurthPunchout extends DolibarrModules
 			$sql .= ' WHERE entity = '.((int) $conf->entity)." AND wurth_unit = '".$this->db->escape($code)."'";
 			$sql .= ')';
 			$this->db->query($sql);
-		}
-	}
-
-	/**
-	 * Repair permission definitions created with the old non-technical rights class.
-	 *
-	 * @return void
-	 */
-	private function repairPermissionDefinitions()
-	{
-		$legacyModule = 'Les Métiers du Bâtiment';
-		$rights = array(
-			$this->numero + 1 => array('LmdbWurthPunchoutRightUse', 'punchout', 'use'),
-			$this->numero + 2 => array('LmdbWurthPunchoutRightReadSessions', 'session', 'read'),
-			$this->numero + 3 => array('LmdbWurthPunchoutRightConfigure', 'setup', 'write'),
-		);
-
-		foreach ($rights as $rightId => $definition) {
-			$sql = 'UPDATE '.MAIN_DB_PREFIX.'rights_def';
-			$sql .= " SET module = '".$this->db->escape($this->rights_class)."'";
-			$sql .= ", module_origin = ''";
-			$sql .= ", libelle = '".$this->db->escape($definition[0])."'";
-			$sql .= ", type = 'w'";
-			$sql .= ', bydefault = 0';
-			$sql .= ", perms = '".$this->db->escape($definition[1])."'";
-			$sql .= ", subperms = '".$this->db->escape($definition[2])."'";
-			$sql .= ", enabled = '1'";
-			$sql .= ' WHERE id = '.((int) $rightId);
-			$sql .= " AND (module = '".$this->db->escape($legacyModule)."'";
-			$sql .= " OR module = '".$this->db->escape($this->rights_class)."'";
-			$sql .= " OR module_origin = '".$this->db->escape($legacyModule)."'";
-			$sql .= " OR module_origin = '".$this->db->escape($this->rights_class)."')";
-
-			if (!$this->db->query($sql)) {
-				dol_syslog(__METHOD__.' '.$this->db->lasterror(), LOG_WARNING);
-			}
 		}
 	}
 }
