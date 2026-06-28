@@ -90,7 +90,7 @@ if ($action === 'save_settings') {
 		$settings['CXML_SHIPPING_VAT_RATE'] = '';
 	}
 	if ($settings['CXML_REP_AMOUNT'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_AMOUNT']))) {
-		$settings['CXML_REP_AMOUNT'] = '0.01';
+		$settings['CXML_REP_AMOUNT'] = '0';
 	}
 	if ($settings['CXML_REP_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_VAT_RATE']))) {
 		$settings['CXML_REP_VAT_RATE'] = '';
@@ -156,6 +156,62 @@ if ($action === 'delete_unitmap') {
 	}
 	if ($rowid > 0) {
 		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_unitmap WHERE rowid = '.((int) $rowid).' AND entity = '.((int) $conf->entity);
+		$resql = $db->query($sql);
+		if (!$resql) {
+			setEventMessages($db->lasterror(), null, 'errors');
+		} else {
+			setEventMessages($langs->trans('RecordDeleted'), null, 'mesgs');
+		}
+	}
+	header('Location: '.$setupUrl);
+	exit;
+}
+
+if ($action === 'save_repmap') {
+	if (!LmdbWurthPunchoutSecurity::checkToken()) {
+		accessforbidden('Bad token');
+	}
+
+	$vendorRef = trim(GETPOST('vendor_ref', 'restricthtml'));
+	$amountHt = str_replace(',', '.', trim(GETPOST('amount_ht', 'alphanohtml')));
+	$label = GETPOST('label', 'restricthtml');
+
+	if ($vendorRef === '') {
+		setEventMessages($langs->trans('LmdbWurthPunchoutRepVendorRefRequired'), null, 'errors');
+	} elseif ($amountHt === '' || !is_numeric($amountHt) || (float) $amountHt <= 0) {
+		setEventMessages($langs->trans('LmdbWurthPunchoutRepAmountRequired'), null, 'errors');
+	} elseif ($rowid > 0) {
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap SET';
+		$sql .= " vendor_ref = '".$db->escape($vendorRef)."'";
+		$sql .= ', amount_ht = '.((float) $amountHt);
+		$sql .= ", label = '".$db->escape($label)."'";
+		$sql .= ' WHERE rowid = '.((int) $rowid).' AND entity = '.((int) $conf->entity);
+		$resql = $db->query($sql);
+		if (!$resql) {
+			setEventMessages($db->lasterror(), null, 'errors');
+		} else {
+			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		}
+	} else {
+		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap (entity, vendor_ref, amount_ht, label)';
+		$sql .= ' VALUES ('.((int) $conf->entity).", '".$db->escape($vendorRef)."', ".((float) $amountHt).", '".$db->escape($label)."')";
+		$resql = $db->query($sql);
+		if (!$resql) {
+			setEventMessages($db->lasterror(), null, 'errors');
+		} else {
+			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		}
+	}
+	header('Location: '.$setupUrl);
+	exit;
+}
+
+if ($action === 'delete_repmap') {
+	if (!LmdbWurthPunchoutSecurity::checkToken()) {
+		accessforbidden('Bad token');
+	}
+	if ($rowid > 0) {
+		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap WHERE rowid = '.((int) $rowid).' AND entity = '.((int) $conf->entity);
 		$resql = $db->query($sql);
 		if (!$resql) {
 			setEventMessages($db->lasterror(), null, 'errors');
@@ -248,7 +304,8 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlInferShippi
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportRep').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepAmount').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_AMOUNT', '0.01')).'"> '.dol_escape_htmltag(LmdbWurthPunchoutConfig::getExpectedCurrency()).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepAmountHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepUseFallback').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_REP_USE_FALLBACK', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_REP_USE_FALLBACK', 0) ? 'Yes' : 'No')).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepUseFallbackHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepAmount').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_AMOUNT', '0')).'"> '.dol_escape_htmltag(LmdbWurthPunchoutConfig::getExpectedCurrency()).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepAmountHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepProductHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRateHelp').'</span></td></tr>';
 print '</table>';
@@ -268,6 +325,10 @@ renderWurthFranceSupplierSection($db);
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbWurthPunchoutUnitMapping'), '', '');
 renderUnitMapTable($db, $form);
+
+print '<br>';
+print load_fiche_titre($langs->trans('LmdbWurthPunchoutRepMapping'), '', '');
+renderRepMapTable($db);
 
 print dol_get_fiche_end();
 llxFooter();
@@ -375,6 +436,72 @@ function renderUnitMapTable($db, $form)
 	if (function_exists('ajax_combobox')) {
 		ajax_combobox('fk_unit');
 	}
+}
+
+/**
+ * Render REP amount mapping table.
+ *
+ * @param DoliDB $db Database handler
+ * @return void
+ */
+function renderRepMapTable($db)
+{
+	global $conf, $langs;
+
+	$currency = LmdbWurthPunchoutConfig::getExpectedCurrency();
+	$sql = 'SELECT rowid, vendor_ref, amount_ht, label FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
+	$sql .= ' WHERE entity = '.((int) $conf->entity);
+	$sql .= ' ORDER BY vendor_ref ASC';
+	$resql = $db->query($sql);
+
+	print '<table class="noborder centpercent">';
+	print '<tr class="liste_titre"><th>'.$langs->trans('LmdbWurthPunchoutRepVendorRef').'</th><th>'.$langs->trans('LmdbWurthPunchoutRepAmountPerUnit').'</th><th>'.$langs->trans('Label').'</th><th></th></tr>';
+	if ($resql && $db->num_rows($resql) > 0) {
+		while ($obj = $db->fetch_object($resql)) {
+			print '<tr class="oddeven">';
+			print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
+			print '<input type="hidden" name="token" value="'.newToken().'">';
+			print '<input type="hidden" name="action" value="save_repmap">';
+			print '<input type="hidden" name="rowid" value="'.((int) $obj->rowid).'">';
+			print '<td><input class="flat minwidth200" name="vendor_ref" value="'.dol_escape_htmltag($obj->vendor_ref).'"></td>';
+			print '<td><input class="flat width75" name="amount_ht" value="'.dol_escape_htmltag(formatRepAmount((float) $obj->amount_ht)).'"> '.dol_escape_htmltag($currency).'</td>';
+			print '<td><input class="flat minwidth300" name="label" value="'.dol_escape_htmltag($obj->label).'"></td>';
+			print '<td class="right"><input class="button button-save small" type="submit" value="'.$langs->trans('Save').'"> ';
+			print '<a class="button button-delete small" href="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'?action=delete_repmap&rowid='.((int) $obj->rowid).'&token='.newToken().'">'.$langs->trans('Delete').'</a></td>';
+			print '</form>';
+			print '</tr>';
+		}
+	} elseif (!$resql) {
+		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$db->lasterror().'</span></td></tr>';
+	} else {
+		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+	}
+	print '<tr class="liste_titre"><td colspan="4">'.$langs->trans('Add').'</td></tr>';
+	print '<tr class="oddeven">';
+	print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="save_repmap">';
+	print '<td><input class="flat minwidth200" name="vendor_ref" value=""></td>';
+	print '<td><input class="flat width75" name="amount_ht" value=""> '.dol_escape_htmltag($currency).'</td>';
+	print '<td><input class="flat minwidth300" name="label" value=""></td>';
+	print '<td class="right"><input class="button button-add small" type="submit" value="'.$langs->trans('Add').'"></td>';
+	print '</form>';
+	print '</tr>';
+	print '</table>';
+
+	print '<div class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutRepMappingHelp').'</div>';
+}
+
+/**
+ * Format REP amount for editable inputs.
+ *
+ * @param float $amount Amount
+ * @return string
+ */
+function formatRepAmount($amount)
+{
+	$value = rtrim(rtrim(sprintf('%.8F', $amount), '0'), '.');
+	return $value !== '' ? $value : '0';
 }
 
 /**

@@ -10,8 +10,8 @@
 - Ajout du parsing cXML complet du panier : frais de port, total, taxe, adresse de livraison et métadonnées de lignes.
 - Ajout de l’import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
 - Ajout d’un fallback cXML WURTH optionnel pour déduire les frais annexes depuis l’écart entre la taxe d’en-tête et les taxes des lignes lorsque `Shipping/Money` vaut zéro.
-- Ajout de l’import REP `REP Taxe n/w` comme ligne séparée avec montant forfaitaire configurable.
-- Ajout d’une migration idempotente pour les nouvelles colonnes de stockage cXML.
+- Ajout de l’import REP `REP Taxe n/w` comme ligne séparée avec barème par référence fournisseur WURTH et montant de repli optionnel.
+- Ajout des migrations idempotentes pour les nouvelles colonnes de stockage cXML et le barème REP WURTH.
 
 ## 1.0.0 - 2026-06-25
 

@@ -84,6 +84,7 @@ class LmdbWurthPunchoutImporter
 			'rep_tax_amount' => 0.0,
 			'rep_tax_delta' => 0.0,
 			'rep_source' => '',
+			'rep_rule_matches' => 0,
 			'rep_skipped_reason' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
@@ -436,7 +437,7 @@ class LmdbWurthPunchoutImporter
 		$summary['shipping_currency'] = $shippingCurrency;
 
 		if ($shippingAmount <= 0) {
-			$additionalFees = $this->inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, $summary);
+			$additionalFees = $this->inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, (int) $session->entity, $summary);
 			$inferredShippingAmount = (float) $additionalFees['shipping_amount'];
 			$repAmount = (float) $additionalFees['rep_amount'];
 			if ($inferredShippingAmount <= 0) {
@@ -613,10 +614,11 @@ class LmdbWurthPunchoutImporter
 	 * @param array<int,array<string,mixed>> $lines           Normalized article lines
 	 * @param float                          $shippingVatRate Shipping VAT rate
 	 * @param float                          $repVatRate      REP VAT rate
+	 * @param int                            $entity          Entity
 	 * @param array<string,mixed>            $summary         Import summary
 	 * @return array{shipping_amount:float,rep_amount:float}
 	 */
-	private function inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, &$summary)
+	private function inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, $entity, &$summary)
 	{
 		$emptyFees = array('shipping_amount' => 0.0, 'rep_amount' => 0.0);
 
@@ -648,15 +650,19 @@ class LmdbWurthPunchoutImporter
 			return $emptyFees;
 		}
 
-		$repAmount = $this->getRepAmountForTaxDelta();
+		$repAmount = $this->getRepAmountForTaxDelta($lines, $entity, $summary);
 		$repTaxAmount = 0.0;
 		if ($repAmount > 0 && LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
 			$repTaxAmount = $this->calculateVatAmount($repAmount, $repVatRate);
-			$summary['rep_source'] = 'fixed_tax_delta';
+			if (empty($summary['rep_source'])) {
+				$summary['rep_source'] = 'tax_delta';
+			}
 			$summary['rep_amount'] = $repAmount;
 			$summary['rep_tax_amount'] = $repTaxAmount;
 		} elseif ($repAmount > 0) {
-			$summary['rep_source'] = 'fixed_tax_delta';
+			if (empty($summary['rep_source'])) {
+				$summary['rep_source'] = 'tax_delta';
+			}
 			$summary['rep_amount'] = $repAmount;
 			$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
 			$summary['rep_skipped_reason'] = 'disabled';
@@ -733,13 +739,103 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
-	 * Return configured REP amount for WURTH tax-delta fallback.
+	 * Return REP amount for WURTH tax-delta fallback.
 	 *
+	 * @param array<int,array<string,mixed>> $lines   Normalized article lines
+	 * @param int                            $entity  Entity
+	 * @param array<string,mixed>            $summary Import summary
 	 * @return float
 	 */
-	private function getRepAmountForTaxDelta()
+	private function getRepAmountForTaxDelta($lines, $entity, &$summary)
 	{
-		return max(0.0, LmdbWurthPunchoutConfig::getFloat('CXML_REP_AMOUNT', 0.01));
+		$mappedAmount = $this->getRepAmountFromRules($lines, $entity, $summary);
+		if ($mappedAmount > 0) {
+			return $mappedAmount;
+		}
+
+		if (!LmdbWurthPunchoutConfig::getInt('CXML_REP_USE_FALLBACK', 0)) {
+			return 0.0;
+		}
+
+		$fallbackAmountPerUnit = max(0.0, LmdbWurthPunchoutConfig::getFloat('CXML_REP_AMOUNT', 0.0));
+		if ($fallbackAmountPerUnit <= 0) {
+			return 0.0;
+		}
+
+		$quantity = 0.0;
+		foreach ($lines as $line) {
+			$quantity += max(0.0, (float) ($line['qty'] ?? 0));
+		}
+		if ($quantity <= 0) {
+			return 0.0;
+		}
+
+		$summary['rep_source'] = 'fallback_per_unit_tax_delta';
+		return round($fallbackAmountPerUnit * $quantity, 2);
+	}
+
+	/**
+	 * Sum REP amounts from configured supplier-reference rules.
+	 *
+	 * @param array<int,array<string,mixed>> $lines   Normalized article lines
+	 * @param int                            $entity  Entity
+	 * @param array<string,mixed>            $summary Import summary
+	 * @return float
+	 */
+	private function getRepAmountFromRules($lines, $entity, &$summary)
+	{
+		$total = 0.0;
+		$matches = 0;
+
+		foreach ($lines as $line) {
+			$vendorRef = trim((string) ($line['vendor_ref'] ?? ''));
+			if ($vendorRef === '') {
+				continue;
+			}
+
+			$amountPerUnit = $this->findRepAmountPerUnit($vendorRef, $entity);
+			if ($amountPerUnit <= 0) {
+				continue;
+			}
+
+			$total += $amountPerUnit * max(0.0, (float) ($line['qty'] ?? 0));
+			$matches++;
+		}
+
+		$summary['rep_rule_matches'] = $matches;
+		if ($total > 0) {
+			$summary['rep_source'] = 'product_rule_tax_delta';
+		}
+
+		return round($total, 2);
+	}
+
+	/**
+	 * Find REP amount without tax per unit for a WURTH supplier reference.
+	 *
+	 * @param string $vendorRef Supplier reference
+	 * @param int    $entity    Entity
+	 * @return float
+	 */
+	private function findRepAmountPerUnit($vendorRef, $entity)
+	{
+		$sql = 'SELECT amount_ht';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
+		$sql .= " WHERE vendor_ref = '".$this->db->escape($vendorRef)."'";
+		$sql .= ' AND entity IN ('.((int) $entity).', 1)';
+		$sql .= ' ORDER BY entity DESC';
+		$sql .= $this->db->plimit(1);
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			if (function_exists('dol_syslog')) {
+				dol_syslog('LmdbWurthPunchout REP mapping SQL error: '.$this->db->lasterror(), LOG_ERR);
+			}
+			return 0.0;
+		}
+
+		$obj = $this->db->fetch_object($resql);
+		return $obj ? max(0.0, (float) $obj->amount_ht) : 0.0;
 	}
 
 	/**
