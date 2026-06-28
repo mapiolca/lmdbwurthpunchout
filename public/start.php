@@ -19,6 +19,7 @@ if (!$res) {
 require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.commande.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/functions2.lib.php';
+require_once __DIR__.'/../lib/lmdbwurthpunchout.lib.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutconfig.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
@@ -138,7 +139,9 @@ function renderLaunchPage($targetUrl, $method, $params, $orderId, $embed = 0, $e
 	print '<noscript><input class="button" type="submit" value="'.$langs->trans('Continue').'"></noscript>';
 	print '</form>';
 	print '<script>document.getElementById("lmdbwurthpunchout_launch").submit();</script>';
-	print '<p><a class="button" href="'.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $orderId.'">'.$langs->trans('BackToSupplierOrder').'</a></p>';
+	$orderUrl = DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $orderId;
+	lmdbwurthpunchoutPrintReturnToSupplierOrderJavascript();
+	print '<p>'.lmdbwurthpunchoutGetReturnToSupplierOrderButton($orderUrl, 'button').'</p>';
 
 	llxFooter();
 	exit;

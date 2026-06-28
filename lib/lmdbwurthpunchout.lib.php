@@ -88,6 +88,51 @@ function lmdbwurthpunchoutPrintAdminHeader($activeTab)
 }
 
 /**
+ * Print browser-side helper used to leave a Punchout modal/popup and reload the supplier order card.
+ *
+ * @param string $orderUrl    Supplier order URL for automatic return
+ * @param int    $autoDelayMs Automatic return delay in milliseconds, negative to disable
+ * @return void
+ */
+function lmdbwurthpunchoutPrintReturnToSupplierOrderJavascript($orderUrl = '', $autoDelayMs = -1)
+{
+	static $functionPrinted = false;
+
+	if ($functionPrinted && ($orderUrl === '' || $autoDelayMs < 0)) {
+		return;
+	}
+
+	print '<script>';
+	if (!$functionPrinted) {
+		print 'function lmdbWurthPunchoutReturnToSupplierOrder(url){';
+		print 'if(window.parent&&window.parent!==window&&typeof window.parent.lmdbWurthPunchoutCloseModal==="function"){window.parent.lmdbWurthPunchoutCloseModal(url);return false;}';
+		print 'if(window.opener&&!window.opener.closed){window.opener.location.href=url;window.close();return false;}';
+		print 'if(window.top&&window.top!==window.self){window.top.location.href=url;return false;}';
+		print 'window.location.href=url;return false;';
+		print '}';
+		$functionPrinted = true;
+	}
+	if ($orderUrl !== '' && $autoDelayMs >= 0) {
+		print 'window.setTimeout(function(){lmdbWurthPunchoutReturnToSupplierOrder('.json_encode($orderUrl).');}, '.((int) $autoDelayMs).');';
+	}
+	print '</script>';
+}
+
+/**
+ * Build a supplier order return button that works inside modal iframe, popup, or normal page.
+ *
+ * @param string $orderUrl Supplier order URL
+ * @param string $cssClass Button CSS classes
+ * @return string
+ */
+function lmdbwurthpunchoutGetReturnToSupplierOrderButton($orderUrl, $cssClass = 'button')
+{
+	global $langs;
+
+	return '<a class="'.dol_escape_htmltag($cssClass).'" href="'.dol_escape_htmltag($orderUrl).'" onclick="return lmdbWurthPunchoutReturnToSupplierOrder(this.href);">'.$langs->trans('BackToSupplierOrder').'</a>';
+}
+
+/**
  * Check if a value exists in an associative array.
  *
  * @param array<string,mixed> $array Source array

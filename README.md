@@ -27,6 +27,7 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
 - Fallback optionnel WURTH : si `Shipping/Money` vaut zéro mais que la taxe d’en-tête contient des frais annexes, le module peut créer une ligne de port et une ligne `REP Taxe n/w` séparées.
 - Barème REP cXML par référence fournisseur WURTH, avec règles candidates créées automatiquement et blocage de l’import tant qu’un montant inconnu n’est pas confirmé. Le matching accepte la référence visible WURTH ou l’identifiant cXML complet.
+- Page autonome de complétion du barème REP depuis une session cXML bloquée, adaptée à la modale Punchout.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.

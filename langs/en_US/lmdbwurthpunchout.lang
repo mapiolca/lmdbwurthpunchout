@@ -82,6 +82,7 @@ LmdbWurthPunchoutCxmlRepVatRate=REP VAT rate
 LmdbWurthPunchoutCxmlRepVatRateHelp=Optional. Leave empty to use the common line VAT rate or the default VAT rate.
 LmdbWurthPunchoutRepLineLabel=REP Taxe n/w
 LmdbWurthPunchoutRepMapping=WURTH REP rules
+LmdbWurthPunchoutRepCompletionTitle=Complete WURTH REP rules
 LmdbWurthPunchoutRepMappingHelp=REP is calculated by multiplying the configured unit amount without tax by the quantity returned in cXML. You can enter the visible WURTH reference or the full cXML identifier; the most specific rule wins. An amount set to 0 confirms that no REP must be imported for this reference.
 LmdbWurthPunchoutRepVendorRef=WURTH supplier reference
 LmdbWurthPunchoutRepVendorRefRequired=The WURTH supplier reference is required.

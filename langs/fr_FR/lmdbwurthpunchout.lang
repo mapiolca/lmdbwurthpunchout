@@ -82,6 +82,7 @@ LmdbWurthPunchoutCxmlRepVatRate=Taux de TVA REP
 LmdbWurthPunchoutCxmlRepVatRateHelp=Optionnel. Laisser vide pour utiliser le taux commun des lignes ou la TVA par défaut.
 LmdbWurthPunchoutRepLineLabel=REP Taxe n/w
 LmdbWurthPunchoutRepMapping=Barème REP WURTH
+LmdbWurthPunchoutRepCompletionTitle=Compléter le barème REP WURTH
 LmdbWurthPunchoutRepMappingHelp=La REP est calculée en multipliant le montant HT unitaire configuré par la quantité retournée dans le cXML. Vous pouvez saisir la référence visible WURTH ou l’identifiant cXML complet ; la règle la plus précise est prioritaire. Un montant à 0 confirme qu’aucune REP ne doit être importée pour cette référence.
 LmdbWurthPunchoutRepVendorRef=Référence fournisseur WURTH
 LmdbWurthPunchoutRepVendorRefRequired=La référence fournisseur WURTH est obligatoire.

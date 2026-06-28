@@ -14,6 +14,7 @@
 - Ajout du blocage cXML avant import commande lorsque le barème REP est incomplet, avec création automatique de règles candidates à compléter.
 - Déplacement de la gestion du barème REP WURTH dans un onglet dédié des réglages.
 - Ajout d’un bouton de relance d’import depuis l’onglet REP lorsque le panier bloqué est déjà stocké.
+- Ajout d’une page autonome de complétion REP pour le flux en modale et d’un retour commande qui ferme/recharge la modale Punchout.
 - Ajout des migrations idempotentes pour les nouvelles colonnes de stockage cXML et le barème REP WURTH.
 
 ## 1.0.0 - 2026-06-25
