@@ -26,7 +26,7 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Conservation des métadonnées cXML du panier : frais de port, total, taxe, adresse de livraison et identifiants complémentaires de lignes.
 - Import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
 - Fallback optionnel WURTH : si `Shipping/Money` vaut zéro mais que la taxe d’en-tête contient des frais annexes, le module peut créer une ligne de port et une ligne `REP Taxe n/w` séparées.
-- Barème REP cXML par référence fournisseur WURTH, avec montant HT unitaire multiplié par la quantité retournée.
+- Barème REP cXML par référence fournisseur WURTH, avec montant HT unitaire multiplié par la quantité retournée. Le matching accepte la référence visible WURTH ou l’identifiant cXML complet.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.

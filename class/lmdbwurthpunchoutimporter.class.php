@@ -85,6 +85,7 @@ class LmdbWurthPunchoutImporter
 			'rep_tax_delta' => 0.0,
 			'rep_source' => '',
 			'rep_rule_matches' => 0,
+			'rep_unmatched_refs' => array(),
 			'rep_skipped_reason' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
@@ -795,6 +796,7 @@ class LmdbWurthPunchoutImporter
 
 			$amountPerUnit = $this->findRepAmountPerUnit($vendorRef, $entity);
 			if ($amountPerUnit <= 0) {
+				$summary['rep_unmatched_refs'][] = $vendorRef;
 				continue;
 			}
 
@@ -819,12 +821,10 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function findRepAmountPerUnit($vendorRef, $entity)
 	{
-		$sql = 'SELECT amount_ht';
+		$sql = 'SELECT entity, vendor_ref, amount_ht';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
-		$sql .= " WHERE vendor_ref = '".$this->db->escape($vendorRef)."'";
-		$sql .= ' AND entity IN ('.((int) $entity).', 1)';
-		$sql .= ' ORDER BY entity DESC';
-		$sql .= $this->db->plimit(1);
+		$sql .= ' WHERE entity IN ('.((int) $entity).', 1)';
+		$sql .= ' ORDER BY entity DESC, LENGTH(vendor_ref) DESC';
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
@@ -834,8 +834,45 @@ class LmdbWurthPunchoutImporter
 			return 0.0;
 		}
 
-		$obj = $this->db->fetch_object($resql);
-		return $obj ? max(0.0, (float) $obj->amount_ht) : 0.0;
+		$incomingRef = trim($vendorRef);
+		$incomingNormalizedRef = $this->normalizeRepReference($incomingRef);
+		$bestAmount = 0.0;
+		$bestSpecificity = 0;
+
+		while ($obj = $this->db->fetch_object($resql)) {
+			$ruleRef = trim((string) $obj->vendor_ref);
+			$ruleNormalizedRef = $this->normalizeRepReference($ruleRef);
+			if ($ruleRef === '' || $ruleNormalizedRef === '') {
+				continue;
+			}
+
+			$specificity = 0;
+			if ($ruleRef === $incomingRef) {
+				$specificity = 100000 + strlen($ruleNormalizedRef);
+			} elseif ($ruleNormalizedRef === $incomingNormalizedRef) {
+				$specificity = 50000 + strlen($ruleNormalizedRef);
+			} elseif (strlen($ruleNormalizedRef) >= 8 && strpos($incomingNormalizedRef, $ruleNormalizedRef) === 0) {
+				$specificity = strlen($ruleNormalizedRef);
+			}
+
+			if ($specificity > $bestSpecificity) {
+				$bestSpecificity = $specificity;
+				$bestAmount = max(0.0, (float) $obj->amount_ht);
+			}
+		}
+
+		return $bestAmount;
+	}
+
+	/**
+	 * Normalize a WURTH reference for REP rule matching.
+	 *
+	 * @param string $reference Reference
+	 * @return string
+	 */
+	private function normalizeRepReference($reference)
+	{
+		return LmdbWurthPunchoutSecurity::normalizeSupplierReference($reference);
 	}
 
 	/**
