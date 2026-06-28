@@ -83,10 +83,39 @@ if (count($ociPhpPostShapeLines) !== 1 || $ociPhpPostShapeLines[0]['vendor_ref']
 	throw new RuntimeException('OCI parser PHP POST shape test failed');
 }
 
-$cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrderMessageHeader><Total><Money currency="EUR">0</Money></Total></PunchOutOrderMessageHeader><ItemIn quantity="2"><ItemID><SupplierPartID>0890108715063</SupplierPartID></ItemID><ItemDetail><UnitPrice><Money currency="EUR">3.50</Money></UnitPrice><Description xml:lang="fr"><ShortName>Nettoyant freins</ShortName>BIDON NETTOYANT FREINS 5 L</Description><UnitOfMeasure>EA</UnitOfMeasure><Classification domain="UNSPSC">47132101</Classification></ItemDetail><Tax><TaxDetail category="FullTax" percentageRate="20.000"></TaxDetail></Tax></ItemIn></PunchOutOrderMessage></Message></cXML>';
+$cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrderMessageHeader><Total><Money currency="EUR">7.00</Money></Total><ShipTo><Address addressID="ADDR1"><Name xml:lang="fr">Adresse principale</Name><PostalAddress><DeliverTo>Magasin</DeliverTo><Street>4 RUE ALFRED KASTLER</Street><City>MIOS</City><State></State><PostalCode>33380</PostalCode><Country isoCountryCode="FR">FR</Country></PostalAddress></Address></ShipTo><Shipping><Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description></Shipping><Tax><Money currency="EUR">1.40</Money><Description xml:lang="fr">TVA</Description></Tax></PunchOutOrderMessageHeader><ItemIn quantity="2" lineNumber="10"><ItemID><SupplierPartID>0890108715063</SupplierPartID><SupplierPartAuxiliaryID>AUX-1</SupplierPartAuxiliaryID></ItemID><ItemDetail><UnitPrice><Money currency="EUR">3.50</Money></UnitPrice><Description xml:lang="fr"><ShortName>Nettoyant freins</ShortName>BIDON NETTOYANT FREINS 5 L</Description><UnitOfMeasure>EA</UnitOfMeasure><Classification domain="UNSPSC">47132101</Classification></ItemDetail><Tax><Money currency="EUR">1.40</Money><TaxDetail category="FullTax" percentageRate="20.000"></TaxDetail></Tax></ItemIn></PunchOutOrderMessage></Message></cXML>';
 $cxmlLines = $parser->parseCxml($cxml);
 if (count($cxmlLines) !== 1 || $cxmlLines[0]['vendor_ref'] !== '0890108715063' || abs($cxmlLines[0]['unit_price_ht'] - 3.5) > 0.000001) {
 	throw new RuntimeException('cXML parser test failed');
+}
+if ($cxmlLines[0]['source_line_number'] !== '10' || $cxmlLines[0]['supplier_part_auxiliary_id'] !== 'AUX-1') {
+	throw new RuntimeException('cXML line metadata parser test failed');
+}
+
+$cxmlBasket = $parser->parseCxmlBasket($cxml);
+if (count($cxmlBasket['lines']) !== 1 || abs($cxmlBasket['header']['shipping']['amount']) > 0.000001 || $cxmlBasket['header']['shipping']['currency'] !== 'EUR') {
+	throw new RuntimeException('cXML basket header shipping zero test failed');
+}
+if ($cxmlBasket['header']['ship_to']['zip'] !== '33380' || $cxmlBasket['header']['ship_to']['town'] !== 'MIOS' || $cxmlBasket['header']['ship_to']['country_code'] !== 'FR') {
+	throw new RuntimeException('cXML ShipTo parser test failed');
+}
+
+$cxmlPositiveShipping = str_replace('<Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description>', '<Money currency="EUR">12.34</Money><Description xml:lang="fr">Transport</Description>', $cxml);
+$positiveShippingBasket = $parser->parseCxmlBasket($cxmlPositiveShipping);
+if (abs($positiveShippingBasket['header']['shipping']['amount'] - 12.34) > 0.000001 || $positiveShippingBasket['header']['shipping']['description'] !== 'Transport') {
+	throw new RuntimeException('cXML positive shipping parser test failed');
+}
+
+$cxmlNoShipping = str_replace('<Shipping><Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description></Shipping>', '', $cxml);
+$noShippingBasket = $parser->parseCxmlBasket($cxmlNoShipping);
+if (!empty($noShippingBasket['header']['shipping']['has_value']) || abs($noShippingBasket['header']['shipping']['amount']) > 0.000001) {
+	throw new RuntimeException('cXML no shipping parser test failed');
+}
+
+$cxmlForeignShippingCurrency = str_replace('<Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description>', '<Money currency="GBP">6.00</Money><Description xml:lang="fr">Transport</Description>', $cxml);
+$foreignShippingCurrencyBasket = $parser->parseCxmlBasket($cxmlForeignShippingCurrency);
+if ($foreignShippingCurrencyBasket['header']['shipping']['currency'] !== 'GBP' || abs($foreignShippingCurrencyBasket['header']['shipping']['amount'] - 6.0) > 0.000001) {
+	throw new RuntimeException('cXML shipping currency parser test failed');
 }
 
 $client = new LmdbWurthPunchoutCxmlClient();

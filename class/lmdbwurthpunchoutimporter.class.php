@@ -6,6 +6,7 @@ require_once DOL_DOCUMENT_ROOT.'/fourn/class/fournisseur.product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
 require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
+require_once __DIR__.'/lmdbwurthpunchoutparser.class.php';
 require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
 require_once __DIR__.'/lmdbwurthpunchoutsession.class.php';
 
@@ -71,6 +72,9 @@ class LmdbWurthPunchoutImporter
 
 		$summary = array(
 			'lines_added' => 0,
+			'shipping_lines_added' => 0,
+			'shipping_amount' => 0.0,
+			'shipping_currency' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
 			'warnings' => array(),
@@ -159,6 +163,8 @@ class LmdbWurthPunchoutImporter
 
 			$summary['lines_added']++;
 		}
+
+		$this->importCxmlShippingLine($session, $order, $lines, $summary);
 
 		$order->update_price(1, 'auto', 0, $order->thirdparty);
 
@@ -383,5 +389,165 @@ class LmdbWurthPunchoutImporter
 		}
 
 		return $description;
+	}
+
+	/**
+	 * Add cXML shipping fees as a supplier order line when requested.
+	 *
+	 * @param LmdbWurthPunchoutSession  $session Session
+	 * @param CommandeFournisseur       $order   Supplier order
+	 * @param array<int,array<string,mixed>> $lines Normalized article lines
+	 * @param array<string,mixed>       $summary Import summary
+	 * @return void
+	 */
+	private function importCxmlShippingLine($session, $order, $lines, &$summary)
+	{
+		if (strtoupper((string) $session->protocol) !== 'CXML') {
+			return;
+		}
+
+		$basket = $this->decodeBasketPayload($session);
+		$shipping = isset($basket['header']) && is_array($basket['header']) && isset($basket['header']['shipping']) && is_array($basket['header']['shipping']) ? $basket['header']['shipping'] : array();
+		$shippingAmount = (float) ($shipping['amount'] ?? 0);
+		if ($shippingAmount <= 0) {
+			return;
+		}
+
+		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
+		$shippingCurrency = strtoupper((string) ($shipping['currency'] ?? $expectedCurrency));
+		if ($shippingCurrency !== $expectedCurrency) {
+			throw new RuntimeException('Unexpected cXML shipping currency: '.$shippingCurrency.' (expected '.$expectedCurrency.')');
+		}
+
+		$summary['shipping_amount'] = $shippingAmount;
+		$summary['shipping_currency'] = $shippingCurrency;
+		if (!LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1)) {
+			$summary['warnings'][] = $this->trans('LmdbWurthPunchoutShippingImportDisabled', 'cXML shipping fees were not imported because the option is disabled');
+			return;
+		}
+
+		$productId = LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT');
+		if ($productId > 0) {
+			$product = new Product($this->db);
+			if ($product->fetch($productId) <= 0) {
+				throw new RuntimeException('Configured cXML shipping product/service not found: #'.$productId);
+			}
+		}
+
+		$result = $order->addline(
+			$this->buildShippingDescription($shipping),
+			$shippingAmount,
+			1,
+			$this->getShippingVatRate($lines),
+			0,
+			0,
+			$productId > 0 ? $productId : 0,
+			0,
+			'',
+			0,
+			'HT',
+			0,
+			0,
+			0,
+			0,
+			null,
+			null,
+			array(),
+			null
+		);
+
+		if ($result <= 0) {
+			throw new RuntimeException($order->error ?: 'Unable to add cXML shipping supplier order line');
+		}
+
+		$summary['lines_added']++;
+		$summary['shipping_lines_added'] = 1;
+		$summary['shipping_order_line_id'] = (int) $result;
+	}
+
+	/**
+	 * Decode the stored cXML basket metadata.
+	 *
+	 * @param LmdbWurthPunchoutSession $session Session
+	 * @return array<string,mixed>
+	 */
+	private function decodeBasketPayload($session)
+	{
+		$json = (string) ($session->basket_payload ?? '');
+		if ($json === '') {
+			return array();
+		}
+
+		$payload = json_decode($json, true);
+		return is_array($payload) ? $payload : array();
+	}
+
+	/**
+	 * Build the supplier order description for shipping fees.
+	 *
+	 * @param array<string,mixed> $shipping Shipping metadata
+	 * @return string
+	 */
+	private function buildShippingDescription($shipping)
+	{
+		$label = $this->trans('LmdbWurthPunchoutShippingLineLabel', 'Frais de port WURTH');
+		$description = trim((string) ($shipping['description'] ?? ''));
+		if ($description !== '' && $description !== $label) {
+			$label .= "\n".$description;
+		}
+
+		return $label;
+	}
+
+	/**
+	 * Resolve VAT rate for cXML shipping fees.
+	 *
+	 * @param array<int,array<string,mixed>> $lines Normalized article lines
+	 * @return float
+	 */
+	private function getShippingVatRate($lines)
+	{
+		$configuredVat = trim(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE'));
+		if ($configuredVat !== '') {
+			return LmdbWurthPunchoutParser::toFloat($configuredVat);
+		}
+
+		$commonVat = null;
+		foreach ($lines as $line) {
+			if (!isset($line['vat_rate'])) {
+				continue;
+			}
+			$vatRate = (float) $line['vat_rate'];
+			if ($commonVat === null) {
+				$commonVat = $vatRate;
+				continue;
+			}
+			if (abs($commonVat - $vatRate) > 0.000001) {
+				return LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+			}
+		}
+
+		return $commonVat !== null ? $commonVat : LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+	}
+
+	/**
+	 * Translate a label with a stable fallback for public callbacks.
+	 *
+	 * @param string $key      Translation key
+	 * @param string $fallback Fallback value
+	 * @return string
+	 */
+	private function trans($key, $fallback)
+	{
+		global $langs;
+
+		if (is_object($langs)) {
+			$value = $langs->transnoentitiesnoconv($key);
+			if ($value !== $key) {
+				return $value;
+			}
+		}
+
+		return $fallback;
 	}
 }

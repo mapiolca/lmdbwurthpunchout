@@ -65,8 +65,8 @@ if (!in_array($session->status, array(LmdbWurthPunchoutSession::STATUS_CREATED, 
 try {
 	$rawPayload = LmdbWurthPunchoutCxmlPayload::extract($_POST, (string) file_get_contents('php://input'));
 	$parser = new LmdbWurthPunchoutParser();
-	$lines = $parser->parseCxml($rawPayload);
-	$summary = lmdbwurthpunchoutStoreAndImportReturn($session, 'CXML', $rawPayload, $lines);
+	$basket = $parser->parseCxmlBasket($rawPayload);
+	$summary = lmdbwurthpunchoutStoreAndImportReturn($session, 'CXML', $rawPayload, $basket['lines'], $basket);
 	lmdbwurthpunchoutRenderImportDone($session, $summary);
 } catch (Exception $e) {
 	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());

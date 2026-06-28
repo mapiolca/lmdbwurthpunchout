@@ -54,6 +54,8 @@ if ($action === 'save_settings') {
 		'CXML_SUPPLIER_DOMAIN' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN', 'restricthtml'),
 		'CXML_SUPPLIER_IDENTITY' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY', 'restricthtml'),
 		'CXML_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_CXML_MODE', 'alpha')),
+		'CXML_SHIPPING_FK_PRODUCT' => (string) GETPOSTINT('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT'),
+		'CXML_SHIPPING_VAT_RATE' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE', 'alphanohtml')),
 		'OPEN_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_OPEN_MODE', 'alpha')),
 		'CURRENCY' => strtoupper(GETPOST('LMDBWURTHPUNCHOUT_CURRENCY', 'alpha')),
 		'DEFAULT_VAT' => GETPOST('LMDBWURTHPUNCHOUT_DEFAULT_VAT', 'alphanohtml'),
@@ -80,6 +82,9 @@ if ($action === 'save_settings') {
 	}
 	if (!preg_match('/^[A-Z]{3}$/', $settings['CURRENCY'])) {
 		$settings['CURRENCY'] = 'EUR';
+	}
+	if ($settings['CXML_SHIPPING_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_SHIPPING_VAT_RATE']))) {
+		$settings['CXML_SHIPPING_VAT_RATE'] = '';
 	}
 
 	foreach ($settings as $key => $value) {
@@ -186,6 +191,7 @@ $methodOptions = array('GET' => 'GET', 'POST' => 'POST');
 $openModeOptions = array('popup' => $langs->trans('LmdbWurthPunchoutOpenPopup'), 'newtab' => $langs->trans('LmdbWurthPunchoutOpenNewTab'), 'iframe' => $langs->trans('LmdbWurthPunchoutOpenIframe'));
 $priceUnitOptions = array('divide' => $langs->trans('LmdbWurthPunchoutPriceUnitDivide'), 'ignore' => $langs->trans('LmdbWurthPunchoutPriceUnitIgnore'));
 $cxmlModeOptions = array('production' => $langs->trans('Production'), 'test' => $langs->trans('Test'));
+$shippingProductOptions = getProductServiceOptions($db);
 
 print '<form method="POST" action="'.$setupUrl.'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -228,13 +234,16 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderIdent
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Mode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_MODE', $cxmlModeOptions, LmdbWurthPunchoutConfig::getString('CXML_MODE', 'production'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth150').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportShipping').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING') : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
 print '</table>';
 
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
 print '</form>';
 
 if (function_exists('ajax_combobox')) {
-	foreach (array('LMDBWURTHPUNCHOUT_PROTOCOL', 'LMDBWURTHPUNCHOUT_FK_SOC', 'LMDBWURTHPUNCHOUT_OPEN_MODE', 'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'LMDBWURTHPUNCHOUT_OCI_METHOD', 'LMDBWURTHPUNCHOUT_CXML_MODE') as $htmlname) {
+	foreach (array('LMDBWURTHPUNCHOUT_PROTOCOL', 'LMDBWURTHPUNCHOUT_FK_SOC', 'LMDBWURTHPUNCHOUT_OPEN_MODE', 'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'LMDBWURTHPUNCHOUT_OCI_METHOD', 'LMDBWURTHPUNCHOUT_CXML_MODE', 'LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT') as $htmlname) {
 		ajax_combobox($htmlname);
 	}
 }
@@ -352,6 +361,34 @@ function renderUnitMapTable($db, $form)
 	if (function_exists('ajax_combobox')) {
 		ajax_combobox('fk_unit');
 	}
+}
+
+/**
+ * Load purchasable products/services for cXML shipping mapping.
+ *
+ * @param DoliDB $db Database handler
+ * @return array<int,string>
+ */
+function getProductServiceOptions($db)
+{
+	global $conf, $langs;
+
+	$options = array();
+	$entitySql = function_exists('getEntity') ? getEntity('product') : (string) ((int) $conf->entity);
+	$sql = 'SELECT rowid, ref, label, type FROM '.MAIN_DB_PREFIX.'product';
+	$sql .= ' WHERE entity IN ('.$entitySql.')';
+	$sql .= ' AND status_buy = 1';
+	$sql .= ' ORDER BY ref ASC';
+
+	$resql = $db->query($sql);
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$typeLabel = ((int) $obj->type === 1) ? $langs->trans('Service') : $langs->trans('Product');
+			$options[(int) $obj->rowid] = $obj->ref.' - '.$obj->label.' ('.$typeLabel.')';
+		}
+	}
+
+	return $options;
 }
 
 /**

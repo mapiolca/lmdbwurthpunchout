@@ -23,6 +23,8 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Flux OCI avec `ORGANIZATION`, `NAME`, `PASSWORD` et `HOOK_URL`.
 - Flux cXML avec requête `PunchOutSetupRequest` conforme, `SharedSecret` dans `Sender/Credential`, et parsing du retour `PunchOutOrderMessage`.
 - Retour panier cXML en `cXML-urlencoded` ou `cXML-base64`.
+- Conservation des métadonnées cXML du panier : frais de port, total, taxe, adresse de livraison et identifiants complémentaires de lignes.
+- Import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.
@@ -61,6 +63,7 @@ Paramètres principaux :
 - Durée de validité du token
 - Durée de conservation des payloads
 - Correspondances unités WURTH vers unités Dolibarr
+- Import des frais de port cXML, produit/service de frais de port optionnel et TVA dédiée optionnelle
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
 
@@ -96,6 +99,8 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Retour OCI avec champs `NEW_ITEM-*`.
 - Retour cXML avec `PunchOutOrderMessage` en `cXML-urlencoded`.
 - Retour cXML avec `PunchOutOrderMessage` en `cXML-base64`.
+- Retour cXML avec frais de port à zéro : aucune ligne de frais de port ajoutée.
+- Retour cXML avec frais de port positif : ligne de frais de port ajoutée, en ligne libre ou avec le produit/service configuré.
 - Import sans token CSRF refusé.
 - Import avec token CSRF accepté.
 - Double retour ou double import refusé.

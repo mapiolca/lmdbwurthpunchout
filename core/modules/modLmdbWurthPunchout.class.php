@@ -76,6 +76,9 @@ class modLmdbWurthPunchout extends DolibarrModules
 			9 => array('LMDBWURTHPUNCHOUT_TOKEN_TTL', 'chaine', '30', 'Punchout token duration in minutes', 0, 'current', 1),
 			10 => array('LMDBWURTHPUNCHOUT_RETENTION_DAYS', 'chaine', '30', 'Session retention duration in days', 0, 'current', 1),
 			11 => array('LMDBWURTHPUNCHOUT_OCI_METHOD', 'chaine', 'GET', 'OCI call method', 0, 'current', 1),
+			12 => array('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', 'chaine', '1', 'Import cXML shipping fees', 0, 'current', 1),
+			13 => array('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', 'chaine', '0', 'Optional product/service for cXML shipping fees', 0, 'current', 1),
+			14 => array('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE', 'chaine', '', 'Optional VAT rate for cXML shipping fees', 0, 'current', 1),
 		);
 
 		$this->tabs = array();
@@ -133,6 +136,9 @@ class modLmdbWurthPunchout extends DolibarrModules
 		if ($result < 0) {
 			return -1;
 		}
+		if ($this->upgradeSchema() < 0) {
+			return -1;
+		}
 		$this->initDefaultUnitMap();
 
 		return $this->_init($sql, $options);
@@ -183,5 +189,61 @@ class modLmdbWurthPunchout extends DolibarrModules
 			$sql .= ')';
 			$this->db->query($sql);
 		}
+	}
+
+	/**
+	 * Upgrade existing module tables with columns added after initial release.
+	 *
+	 * @return int
+	 */
+	private function upgradeSchema()
+	{
+		$columnsByTable = array(
+			'lmdbwurthpunchout_session' => array(
+				'basket_payload' => 'mediumtext NULL',
+			),
+			'lmdbwurthpunchout_session_line' => array(
+				'source_line_number' => 'varchar(64) NULL',
+				'supplier_part_auxiliary_id' => 'varchar(255) NULL',
+				'classification_domain' => 'varchar(64) NULL',
+				'classification' => 'varchar(255) NULL',
+				'tax_amount' => 'double(24,8) DEFAULT 0 NOT NULL',
+				'tax_currency' => 'varchar(3) NULL',
+			),
+		);
+
+		foreach ($columnsByTable as $table => $columns) {
+			foreach ($columns as $column => $definition) {
+				if ($this->addColumnIfMissing($table, $column, $definition) < 0) {
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Add a column if it does not already exist.
+	 *
+	 * @param string $table      Table name without prefix
+	 * @param string $column     Column name
+	 * @param string $definition SQL column definition
+	 * @return int
+	 */
+	private function addColumnIfMissing($table, $column, $definition)
+	{
+		$tableName = MAIN_DB_PREFIX.$table;
+		$sql = 'SHOW COLUMNS FROM '.$tableName." LIKE '".$this->db->escape($column)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			return -1;
+		}
+		if ($this->db->num_rows($resql) > 0) {
+			return 1;
+		}
+
+		$sql = 'ALTER TABLE '.$tableName.' ADD COLUMN '.$column.' '.$definition;
+		return $this->db->query($sql) ? 1 : -1;
 	}
 }

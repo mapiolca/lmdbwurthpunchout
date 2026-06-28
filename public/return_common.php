@@ -16,9 +16,10 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
  * @param string                   $protocol   Expected protocol
  * @param string                   $rawPayload Raw payload
  * @param array<int,array<string,mixed>> $lines Normalized lines
+ * @param array<string,mixed>|null $basketPayload Structured basket metadata
  * @return array<string,mixed>
  */
-function lmdbwurthpunchoutStoreAndImportReturn($session, $protocol, $rawPayload, $lines)
+function lmdbwurthpunchoutStoreAndImportReturn($session, $protocol, $rawPayload, $lines, $basketPayload = null)
 {
 	global $db, $langs;
 
@@ -35,7 +36,7 @@ function lmdbwurthpunchoutStoreAndImportReturn($session, $protocol, $rawPayload,
 	if (empty($lines)) {
 		throw new RuntimeException($langs->trans('LmdbWurthPunchoutNoLineReturned'));
 	}
-	if ($session->storeReturn($rawPayload, $lines) < 0) {
+	if ($session->storeReturn($rawPayload, $lines, $basketPayload) < 0) {
 		throw new RuntimeException($session->error);
 	}
 
