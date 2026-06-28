@@ -73,8 +73,10 @@ class LmdbWurthPunchoutImporter
 		$summary = array(
 			'lines_added' => 0,
 			'shipping_lines_added' => 0,
+			'shipping_detected' => false,
 			'shipping_amount' => 0.0,
 			'shipping_currency' => '',
+			'shipping_skipped_reason' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
 			'warnings' => array(),
@@ -408,20 +410,31 @@ class LmdbWurthPunchoutImporter
 
 		$basket = $this->decodeBasketPayload($session);
 		$shipping = isset($basket['header']) && is_array($basket['header']) && isset($basket['header']['shipping']) && is_array($basket['header']['shipping']) ? $basket['header']['shipping'] : array();
-		$shippingAmount = (float) ($shipping['amount'] ?? 0);
-		if ($shippingAmount <= 0) {
+		$shippingDetected = !empty($shipping['has_value']) || array_key_exists('amount', $shipping) || array_key_exists('currency', $shipping);
+		if (!$shippingDetected) {
+			$summary['shipping_skipped_reason'] = 'not_present';
 			return;
 		}
 
+		$shippingAmount = (float) ($shipping['amount'] ?? 0);
 		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
 		$shippingCurrency = strtoupper((string) ($shipping['currency'] ?? $expectedCurrency));
+
+		$summary['shipping_detected'] = true;
+		$summary['shipping_amount'] = $shippingAmount;
+		$summary['shipping_currency'] = $shippingCurrency;
+
+		if ($shippingAmount <= 0) {
+			$summary['shipping_skipped_reason'] = 'zero_amount';
+			return;
+		}
+
 		if ($shippingCurrency !== $expectedCurrency) {
 			throw new RuntimeException('Unexpected cXML shipping currency: '.$shippingCurrency.' (expected '.$expectedCurrency.')');
 		}
 
-		$summary['shipping_amount'] = $shippingAmount;
-		$summary['shipping_currency'] = $shippingCurrency;
 		if (!LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1)) {
+			$summary['shipping_skipped_reason'] = 'disabled';
 			$summary['warnings'][] = $this->trans('LmdbWurthPunchoutShippingImportDisabled', 'cXML shipping fees were not imported because the option is disabled');
 			return;
 		}
@@ -463,6 +476,7 @@ class LmdbWurthPunchoutImporter
 		$summary['lines_added']++;
 		$summary['shipping_lines_added'] = 1;
 		$summary['shipping_order_line_id'] = (int) $result;
+		$summary['shipping_skipped_reason'] = '';
 	}
 
 	/**
