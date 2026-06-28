@@ -291,6 +291,36 @@ class FakeRepSession
 	}
 }
 
+class FakeRepOrder
+{
+	/** @var string */
+	public $error = '';
+
+	/** @var array<int,array{description:string,amount:float,qty:float,vat_rate:float,product_id:int}> */
+	public $lines = array();
+
+	/**
+	 * @param string $description Description
+	 * @param float  $amount      Amount
+	 * @param float  $qty         Quantity
+	 * @param float  $vatRate     VAT rate
+	 * @return int
+	 */
+	public function addline($description, $amount, $qty, $vatRate)
+	{
+		$args = func_get_args();
+		$this->lines[] = array(
+			'description' => (string) $description,
+			'amount' => (float) $amount,
+			'qty' => (float) $qty,
+			'vat_rate' => (float) $vatRate,
+			'product_id' => (int) ($args[6] ?? 0),
+		);
+
+		return count($this->lines);
+	}
+}
+
 /**
  * @param FakeRepDb $db Database
  * @return LmdbWurthPunchoutImporter
@@ -309,6 +339,20 @@ function assertRepRulesReady($importer, $session)
 {
 	$method = new ReflectionMethod($importer, 'assertCxmlRepRulesReady');
 	$method->invoke($importer, $session);
+}
+
+/**
+ * @param LmdbWurthPunchoutImporter        $importer Importer
+ * @param FakeRepSession                   $session  Session
+ * @param FakeRepOrder                     $order    Order
+ * @param array<int,array<string,mixed>>   $lines    Lines
+ * @param array<string,mixed>              $summary  Summary
+ * @return void
+ */
+function importRepAdditionalLines($importer, $session, $order, $lines, &$summary)
+{
+	$method = new ReflectionMethod($importer, 'importCxmlAdditionalLines');
+	$method->invokeArgs($importer, array($session, $order, $lines, &$summary));
 }
 
 /**
@@ -377,6 +421,43 @@ $session = new FakeRepSession(repBasket(115.0, 0.0, 23.0), array($line));
 assertRepRulesReady(createRepImporter($db), $session);
 if (!empty($db->repmap)) {
 	throw new RuntimeException('REP rules were created without a usable HT or tax delta');
+}
+
+$db = new FakeRepDb();
+$db->repmap[] = array('rowid' => 1, 'entity' => 1, 'vendor_ref' => '5964590680', 'amount_ht' => 0.01, 'label' => 'REP', 'status' => 'active');
+$session = new FakeRepSession(repBasket(460.0, 0.0, 92.01), array(repLine(4, 115.0, 92.01)));
+$summary = array(
+	'lines_added' => 0,
+	'shipping_lines_added' => 0,
+	'shipping_detected' => false,
+	'shipping_amount' => 0.0,
+	'shipping_currency' => '',
+	'shipping_inferred_from_tax_delta' => false,
+	'shipping_tax_delta' => 0.0,
+	'shipping_skipped_reason' => '',
+	'rep_lines_added' => 0,
+	'rep_amount' => 0.0,
+	'rep_tax_amount' => 0.0,
+	'rep_tax_delta' => 0.0,
+	'rep_source' => '',
+	'rep_rule_matches' => 0,
+	'rep_unmatched_refs' => array(),
+	'rep_pending_refs' => array(),
+	'rep_rules_autocreated' => 0,
+	'rep_rules_blocked' => 0,
+	'rep_ht_delta_used' => 0.0,
+	'rep_skipped_reason' => '',
+	'products_created' => 0,
+	'supplier_prices_updated' => 0,
+	'warnings' => array(),
+);
+$order = new FakeRepOrder();
+importRepAdditionalLines(createRepImporter($db), $session, $order, $session->fetchLines(), $summary);
+if (count($order->lines) !== 1 || abs($order->lines[0]['amount'] - 0.04) > 0.000001 || (int) $summary['rep_lines_added'] !== 1) {
+	throw new RuntimeException('Active REP rule was not imported when WURTH embeds REP tax in ItemIn/Tax');
+}
+if ((int) $summary['shipping_lines_added'] !== 0 || abs((float) $summary['shipping_amount']) > 0.000001) {
+	throw new RuntimeException('Line tax REP delta was incorrectly converted into shipping');
 }
 
 echo "Importer REP examples OK\n";

@@ -279,10 +279,12 @@ class LmdbWurthPunchoutImporter
 			}
 		}
 
-		$taxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
-		$summary['shipping_tax_delta'] = $taxDelta;
+		$headerTaxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
+		$lineTaxDelta = $this->calculateLineTaxDelta($lines);
+		$taxDelta = max($headerTaxDelta, $lineTaxDelta);
+		$summary['shipping_tax_delta'] = $headerTaxDelta;
 		$summary['rep_tax_delta'] = $taxDelta;
-		if ($taxDelta <= 0.01 && $repHtDelta <= 0) {
+		if (!$this->isPositiveTaxDelta($taxDelta) && $repHtDelta <= 0) {
 			return;
 		}
 
@@ -536,10 +538,21 @@ class LmdbWurthPunchoutImporter
 		}
 
 		$basket = $this->decodeBasketPayload($session);
+		$repVatRate = $this->getRepVatRate($lines);
+		$repAmount = $this->getRepAmountFromRules($lines, (int) $session->entity, $summary);
+		if ($repAmount > 0) {
+			$summary['rep_amount'] = $repAmount;
+			$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
+			$summary['rep_source'] = 'product_rule';
+		}
+
 		$shipping = isset($basket['header']) && is_array($basket['header']) && isset($basket['header']['shipping']) && is_array($basket['header']['shipping']) ? $basket['header']['shipping'] : array();
 		$shippingDetected = !empty($shipping['has_value']) || array_key_exists('amount', $shipping) || array_key_exists('currency', $shipping);
 		if (!$shippingDetected) {
 			$summary['shipping_skipped_reason'] = 'not_present';
+			if ($repAmount > 0) {
+				$this->importCxmlRepLine($order, $repAmount, $repVatRate, $summary);
+			}
 			return;
 		}
 
@@ -547,17 +560,17 @@ class LmdbWurthPunchoutImporter
 		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
 		$shippingCurrency = strtoupper((string) ($shipping['currency'] ?? $expectedCurrency));
 		$shippingVatRate = $this->getShippingVatRate($lines);
-		$repAmount = 0.0;
-		$repVatRate = $this->getRepVatRate($lines);
 
 		$summary['shipping_detected'] = true;
 		$summary['shipping_amount'] = $shippingAmount;
 		$summary['shipping_currency'] = $shippingCurrency;
 
 		if ($shippingAmount <= 0) {
-			$additionalFees = $this->inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, (int) $session->entity, $summary);
+			$additionalFees = $this->inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, (int) $session->entity, $repAmount, $summary);
 			$inferredShippingAmount = (float) $additionalFees['shipping_amount'];
-			$repAmount = (float) $additionalFees['rep_amount'];
+			if ($repAmount <= 0) {
+				$repAmount = (float) $additionalFees['rep_amount'];
+			}
 			if ($inferredShippingAmount <= 0) {
 				$summary['shipping_skipped_reason'] = 'zero_amount';
 			}
@@ -799,6 +812,39 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
+	 * Calculate tax included by WURTH in item tax amounts but not in product VAT.
+	 *
+	 * @param array<int,array<string,mixed>> $lines Normalized article lines
+	 * @return float
+	 */
+	private function calculateLineTaxDelta($lines)
+	{
+		$reportedLineTaxAmount = 0.0;
+		$computedProductTaxAmount = 0.0;
+		foreach ($lines as $line) {
+			$reportedLineTaxAmount += (float) ($line['tax_amount'] ?? 0);
+			$computedProductTaxAmount += $this->calculateVatAmount(
+				(float) ($line['qty'] ?? 0) * (float) ($line['unit_price_ht'] ?? 0),
+				(float) ($line['vat_rate'] ?? 0)
+			);
+		}
+
+		$delta = round($reportedLineTaxAmount - $computedProductTaxAmount, 6);
+		return $delta > 0 ? $delta : 0.0;
+	}
+
+	/**
+	 * Check whether a tax delta is meaningful after regular rounding noise.
+	 *
+	 * @param float $taxDelta Tax delta
+	 * @return bool
+	 */
+	private function isPositiveTaxDelta($taxDelta)
+	{
+		return $taxDelta > 0.0049;
+	}
+
+	/**
 	 * Auto-activate a single missing REP rule from a reliable header HT delta.
 	 *
 	 * @param array<int,array<string,mixed>> $lines      Normalized lines
@@ -945,10 +991,11 @@ class LmdbWurthPunchoutImporter
 	 * @param float                          $shippingVatRate Shipping VAT rate
 	 * @param float                          $repVatRate      REP VAT rate
 	 * @param int                            $entity          Entity
+	 * @param float                          $knownRepAmount  REP amount already resolved from active rules
 	 * @param array<string,mixed>            $summary         Import summary
 	 * @return array{shipping_amount:float,rep_amount:float}
 	 */
-	private function inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, $entity, &$summary)
+	private function inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, $entity, $knownRepAmount, &$summary)
 	{
 		$emptyFees = array('shipping_amount' => 0.0, 'rep_amount' => 0.0);
 
@@ -962,14 +1009,16 @@ class LmdbWurthPunchoutImporter
 			return $emptyFees;
 		}
 
-		$taxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
-		$summary['shipping_tax_delta'] = $taxDelta;
+		$headerTaxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
+		$lineTaxDelta = $this->calculateLineTaxDelta($lines);
+		$taxDelta = max($headerTaxDelta, $lineTaxDelta);
+		$summary['shipping_tax_delta'] = $headerTaxDelta;
 		$summary['rep_tax_delta'] = $taxDelta;
-		if ($taxDelta <= 0.01) {
+		if (!$this->isPositiveTaxDelta($taxDelta)) {
 			return $emptyFees;
 		}
 
-		$repAmount = $this->getRepAmountForTaxDelta($lines, $entity, $summary);
+		$repAmount = $knownRepAmount > 0 ? $knownRepAmount : $this->getRepAmountForTaxDelta($lines, $entity, $summary);
 		$repTaxAmount = 0.0;
 		if ($repAmount > 0 && LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
 			$repTaxAmount = $this->calculateVatAmount($repAmount, $repVatRate);
@@ -986,11 +1035,17 @@ class LmdbWurthPunchoutImporter
 			$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
 			$summary['rep_skipped_reason'] = 'disabled';
 			$repAmount = 0.0;
+		} elseif ($this->isPositiveTaxDelta($lineTaxDelta)) {
+			$summary['rep_source'] = 'product_rule_line_tax_delta';
+			$summary['rep_skipped_reason'] = 'zero_amount';
 		} else {
 			$summary['rep_skipped_reason'] = 'zero_amount';
 		}
 
-		$shippingTaxDelta = round($taxDelta - $repTaxAmount, 6);
+		$shippingTaxDelta = $headerTaxDelta;
+		if (!$this->isPositiveTaxDelta($lineTaxDelta)) {
+			$shippingTaxDelta = round($shippingTaxDelta - $repTaxAmount, 6);
+		}
 		$shippingAmount = $shippingTaxDelta > 0.01 ? round($shippingTaxDelta * 100 / $shippingVatRate, 2) : 0.0;
 
 		return array(
