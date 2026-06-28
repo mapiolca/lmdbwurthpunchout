@@ -43,7 +43,14 @@ function lmdbwurthpunchoutStoreAndImportReturn($session, $protocol, $rawPayload,
 	$importUser = lmdbwurthpunchoutLoadSessionUser($session);
 	$importer = new LmdbWurthPunchoutImporter($db);
 
-	return $importer->importStoredSession($session, $importUser);
+	try {
+		return $importer->importStoredSession($session, $importUser);
+	} catch (LmdbWurthPunchoutRepRulesRequiredException $exception) {
+		if ($session->markImportBlocked($exception->getSummary(), $exception->getMessage()) < 0) {
+			throw new RuntimeException($session->error ?: $exception->getMessage());
+		}
+		lmdbwurthpunchoutRenderRepRulesRequired($session, $exception);
+	}
 }
 
 /**
@@ -98,6 +105,34 @@ function lmdbwurthpunchoutRenderImportDone($session, $summary)
 	print 'else if (window.top && window.top !== window.self) { window.top.location.href = u; }';
 	print 'else { window.setTimeout(function(){ window.location.href = u; }, 800); }';
 	print '</script>';
+	llxFooter();
+	exit;
+}
+
+/**
+ * Render a cXML REP rules completion page.
+ *
+ * @param LmdbWurthPunchoutSession                  $session   Session
+ * @param LmdbWurthPunchoutRepRulesRequiredException $exception Exception
+ * @return void
+ */
+function lmdbwurthpunchoutRenderRepRulesRequired($session, $exception)
+{
+	global $langs;
+
+	$setupUrl = dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'#repmap';
+	$importUrl = dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.(int) $session->id;
+	$orderUrl = DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn;
+
+	llxHeader('', $langs->trans('LmdbWurthPunchoutReturnTitle'));
+	print load_fiche_titre($langs->trans('LmdbWurthPunchoutReturnTitle'), '', 'technic');
+	print '<div class="warning">'.$langs->trans('LmdbWurthPunchoutRepRulesRequiredIntro').'</div>';
+	print '<p>'.dol_escape_htmltag($exception->getMessage()).'</p>';
+	print '<p>';
+	print '<a class="button button-edit" href="'.$setupUrl.'">'.$langs->trans('LmdbWurthPunchoutCompleteRepRules').'</a> ';
+	print '<a class="button button-save" href="'.$importUrl.'">'.$langs->trans('LmdbWurthPunchoutRetryImport').'</a> ';
+	print '<a class="button" href="'.$orderUrl.'">'.$langs->trans('BackToSupplierOrder').'</a>';
+	print '</p>';
 	llxFooter();
 	exit;
 }

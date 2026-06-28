@@ -376,6 +376,34 @@ class LmdbWurthPunchoutSession extends CommonObject
 	}
 
 	/**
+	 * Store an import blocking log while keeping the session importable.
+	 *
+	 * @param array<string,mixed> $summary      Import summary
+	 * @param string              $errorMessage Blocking message
+	 * @return int
+	 */
+	public function markImportBlocked($summary, $errorMessage = '')
+	{
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;
+		$sql .= " SET status = '".self::STATUS_RETURNED."'";
+		$sql .= ", import_log = '".$this->db->escape(json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))."'";
+		$sql .= ", error_message = '".$this->db->escape($errorMessage)."'";
+		$sql .= ' WHERE rowid = '.((int) $this->id);
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$this->status = self::STATUS_RETURNED;
+		$this->import_log = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$this->error_message = $errorMessage;
+
+		return 1;
+	}
+
+	/**
 	 * Expire old sessions.
 	 *
 	 * @return int Number of updated rows when known

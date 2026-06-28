@@ -174,13 +174,14 @@ if ($action === 'save_repmap') {
 
 	if ($vendorRef === '') {
 		setEventMessages($langs->trans('LmdbWurthPunchoutRepVendorRefRequired'), null, 'errors');
-	} elseif ($amountHt === '' || !is_numeric($amountHt) || (float) $amountHt <= 0) {
+	} elseif ($amountHt === '' || !is_numeric($amountHt) || (float) $amountHt < 0) {
 		setEventMessages($langs->trans('LmdbWurthPunchoutRepAmountRequired'), null, 'errors');
 	} elseif ($rowid > 0) {
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap SET';
 		$sql .= " vendor_ref = '".$db->escape($vendorRef)."'";
 		$sql .= ', amount_ht = '.((float) $amountHt);
 		$sql .= ", label = '".$db->escape($label)."'";
+		$sql .= ", status = 'active'";
 		$sql .= ' WHERE rowid = '.((int) $rowid).' AND entity = '.((int) $conf->entity);
 		$resql = $db->query($sql);
 		if (!$resql) {
@@ -189,8 +190,8 @@ if ($action === 'save_repmap') {
 			setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
 		}
 	} else {
-		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap (entity, vendor_ref, amount_ht, label)';
-		$sql .= ' VALUES ('.((int) $conf->entity).", '".$db->escape($vendorRef)."', ".((float) $amountHt).", '".$db->escape($label)."')";
+		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap (entity, vendor_ref, amount_ht, label, status)';
+		$sql .= ' VALUES ('.((int) $conf->entity).", '".$db->escape($vendorRef)."', ".((float) $amountHt).", '".$db->escape($label)."', 'active')";
 		$resql = $db->query($sql);
 		if (!$resql) {
 			setEventMessages($db->lasterror(), null, 'errors');
@@ -321,6 +322,7 @@ print load_fiche_titre($langs->trans('LmdbWurthPunchoutUnitMapping'), '', '');
 renderUnitMapTable($db, $form);
 
 print '<br>';
+print '<a id="repmap"></a>';
 print load_fiche_titre($langs->trans('LmdbWurthPunchoutRepMapping'), '', '');
 renderRepMapTable($db);
 
@@ -443,9 +445,9 @@ function renderRepMapTable($db)
 	global $conf, $langs;
 
 	$currency = LmdbWurthPunchoutConfig::getExpectedCurrency();
-	$sql = 'SELECT rowid, vendor_ref, amount_ht, label FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
+	$sql = 'SELECT rowid, vendor_ref, amount_ht, label, status FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
 	$sql .= ' WHERE entity = '.((int) $conf->entity);
-	$sql .= ' ORDER BY vendor_ref ASC';
+	$sql .= " ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, vendor_ref ASC";
 	$resql = $db->query($sql);
 	$rows = array();
 	if ($resql) {
@@ -468,11 +470,15 @@ function renderRepMapTable($db)
 	print '</form>';
 
 	print '<table class="noborder centpercent">';
-	print '<tr class="liste_titre"><th>'.$langs->trans('LmdbWurthPunchoutRepVendorRef').'</th><th>'.$langs->trans('LmdbWurthPunchoutRepAmountPerUnit').'</th><th>'.$langs->trans('Label').'</th><th></th></tr>';
+	print '<tr class="liste_titre"><th>'.$langs->trans('Status').'</th><th>'.$langs->trans('LmdbWurthPunchoutRepVendorRef').'</th><th>'.$langs->trans('LmdbWurthPunchoutRepAmountPerUnit').'</th><th>'.$langs->trans('Label').'</th><th></th></tr>';
 	if (!empty($rows)) {
 		foreach ($rows as $obj) {
 			$formId = 'repmap-'.((int) $obj->rowid);
+			$status = (string) ($obj->status ?: 'active');
+			$statusLabel = $status === 'pending' ? $langs->trans('LmdbWurthPunchoutRepStatusPending') : $langs->trans('LmdbWurthPunchoutRepStatusActive');
+			$statusClass = $status === 'pending' ? 'badge-status3' : 'badge-status4';
 			print '<tr class="oddeven">';
+			print '<td><span class="badge '.$statusClass.'">'.$statusLabel.'</span></td>';
 			print '<td><input form="'.$formId.'" class="flat minwidth200" name="vendor_ref" value="'.dol_escape_htmltag($obj->vendor_ref).'"></td>';
 			print '<td><input form="'.$formId.'" class="flat width75" name="amount_ht" value="'.dol_escape_htmltag(formatRepAmount((float) $obj->amount_ht)).'"> '.dol_escape_htmltag($currency).'</td>';
 			print '<td><input form="'.$formId.'" class="flat minwidth300" name="label" value="'.dol_escape_htmltag($obj->label).'"></td>';
@@ -481,12 +487,13 @@ function renderRepMapTable($db)
 			print '</tr>';
 		}
 	} elseif (!$resql) {
-		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$db->lasterror().'</span></td></tr>';
+		print '<tr class="oddeven"><td colspan="5"><span class="opacitymedium">'.$db->lasterror().'</span></td></tr>';
 	} else {
-		print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
+		print '<tr class="oddeven"><td colspan="5"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>';
 	}
-	print '<tr class="liste_titre"><td colspan="4">'.$langs->trans('Add').'</td></tr>';
+	print '<tr class="liste_titre"><td colspan="5">'.$langs->trans('Add').'</td></tr>';
 	print '<tr class="oddeven">';
+	print '<td><span class="badge badge-status4">'.$langs->trans('LmdbWurthPunchoutRepStatusActive').'</span></td>';
 	print '<td><input form="repmap-new" class="flat minwidth200" name="vendor_ref" value=""></td>';
 	print '<td><input form="repmap-new" class="flat width75" name="amount_ht" value=""> '.dol_escape_htmltag($currency).'</td>';
 	print '<td><input form="repmap-new" class="flat minwidth300" name="label" value=""></td>';

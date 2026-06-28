@@ -567,6 +567,15 @@ class LmdbWurthPunchoutImporter
 			if ($shippingAmount > 0) {
 				$summary['shipping_inferred_from_tax_delta'] = true;
 			}
+		} else {
+			$repHtDelta = $this->calculateHeaderTotalRepDelta($basket, $lines);
+			if ($repHtDelta > 0) {
+				$repAmount = $repHtDelta;
+				$summary['rep_amount'] = $repAmount;
+				$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
+				$summary['rep_ht_delta_used'] = $repHtDelta;
+				$summary['rep_source'] = 'header_total_ht_delta';
+			}
 		}
 
 		if ($shippingCurrency !== $expectedCurrency) {
@@ -953,18 +962,7 @@ class LmdbWurthPunchoutImporter
 			return $emptyFees;
 		}
 
-		$headerTax = $basket['header']['tax'];
-		if (empty($headerTax['has_value'])) {
-			return $emptyFees;
-		}
-
-		$headerTaxAmount = (float) ($headerTax['amount'] ?? 0);
-		$lineTaxAmount = 0.0;
-		foreach ($lines as $line) {
-			$lineTaxAmount += (float) ($line['tax_amount'] ?? 0);
-		}
-
-		$taxDelta = round($headerTaxAmount - $lineTaxAmount, 6);
+		$taxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
 		$summary['shipping_tax_delta'] = $taxDelta;
 		$summary['rep_tax_delta'] = $taxDelta;
 		if ($taxDelta <= 0.01) {
