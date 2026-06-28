@@ -6,6 +6,7 @@
 - Ajout de la prise en charge des retours panier cXML en `cXML-base64`.
 - Ajout d’identifiants `Sender` cXML optionnels avec repli sur les identifiants client.
 - Journalisation assainie des rejets de setup cXML.
+- Déclaration explicite du document cXML sortant en version `1.2.008` avec DTD, pour compatibilité avec l’endpoint WURTH.
 
 ## 1.0.0 - 2026-06-25
 

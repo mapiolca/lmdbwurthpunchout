@@ -8,6 +8,9 @@ require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
  */
 class LmdbWurthPunchoutCxmlClient
 {
+	const CXML_VERSION = '1.2.008';
+	const CXML_DTD = 'http://xml.cxml.org/schemas/cXML/1.2.008/cXML.dtd';
+
 	/**
 	 * Build cXML setup request.
 	 *
@@ -22,10 +25,13 @@ class LmdbWurthPunchoutCxmlClient
 
 		$doc = new DOMDocument('1.0', 'UTF-8');
 		$doc->formatOutput = true;
+		$doc->appendChild($doc->implementation->createDocumentType('cXML', '', self::CXML_DTD));
 
 		$cxml = $doc->createElement('cXML');
+		$cxml->setAttribute('version', self::CXML_VERSION);
 		$cxml->setAttribute('payloadID', $payloadId);
 		$cxml->setAttribute('timestamp', $timestamp);
+		$cxml->setAttribute('xml:lang', LmdbWurthPunchoutConfig::getString('CXML_LANG', 'en-US'));
 		$doc->appendChild($cxml);
 
 		$header = $cxml->appendChild($doc->createElement('Header'));
@@ -78,7 +84,7 @@ class LmdbWurthPunchoutCxmlClient
 		$ch = curl_init(LmdbWurthPunchoutConfig::getString('CXML_URL'));
 		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8'));
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8', 'Accept: text/xml, application/xml'));
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 		$response = curl_exec($ch);
@@ -90,11 +96,11 @@ class LmdbWurthPunchoutCxmlClient
 		curl_close($ch);
 
 		if ($response === false || $response === '' || $httpCode < 200 || $httpCode >= 300) {
-			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $error, is_string($response) ? $response : '');
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $error, is_string($response) ? $response : '', $xml);
 			throw new RuntimeException('cXML Punchout setup failed'.($error !== '' ? ': '.$error : ''));
 		}
 
-		return $this->parseStartPageUrl($response, $httpCode, $contentType, $effectiveUrl, $redirectUrl);
+		return $this->parseStartPageUrl($response, $httpCode, $contentType, $effectiveUrl, $redirectUrl, $xml);
 	}
 
 	/**
@@ -105,9 +111,10 @@ class LmdbWurthPunchoutCxmlClient
 	 * @param string $contentType  Response content type
 	 * @param string $effectiveUrl Effective URL
 	 * @param string $redirectUrl  Redirect URL
+	 * @param string $request      Raw request
 	 * @return string
 	 */
-	public function parseStartPageUrl($response, $httpCode = 200, $contentType = '', $effectiveUrl = '', $redirectUrl = '')
+	public function parseStartPageUrl($response, $httpCode = 200, $contentType = '', $effectiveUrl = '', $redirectUrl = '', $request = '')
 	{
 		$doc = new DOMDocument();
 		$previous = libxml_use_internal_errors(true);
@@ -115,7 +122,7 @@ class LmdbWurthPunchoutCxmlClient
 		libxml_clear_errors();
 		libxml_use_internal_errors($previous);
 		if (!$loaded) {
-			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response);
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
 			throw new RuntimeException('Invalid cXML setup response');
 		}
 
@@ -128,14 +135,14 @@ class LmdbWurthPunchoutCxmlClient
 				if ($statusText === '') {
 					$statusText = trim($status->textContent);
 				}
-				$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response);
+				$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
 				throw new RuntimeException('cXML setup rejected: '.$statusCode.($statusText !== '' ? ' '.$statusText : ''));
 			}
 		}
 
 		$url = $xpath->query('//*[local-name()="StartPage"]/*[local-name()="URL"]')->item(0);
 		if (!$url || trim($url->textContent) === '') {
-			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response);
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
 			throw new RuntimeException('cXML setup response has no StartPage URL');
 		}
 
@@ -187,14 +194,18 @@ class LmdbWurthPunchoutCxmlClient
 	 * @param string $redirectUrl  Redirect URL
 	 * @param string $curlError    cURL error
 	 * @param string $response     Raw response
+	 * @param string $request      Raw request
 	 * @return void
 	 */
-	private function logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $curlError, $response)
+	private function logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $curlError, $response, $request = '')
 	{
 		$status = $this->extractStatusSummary($response);
 		$redactedResponse = $this->redactCxmlSecrets($response);
 		$excerpt = function_exists('dol_substr') ? dol_substr($redactedResponse, 0, 1000) : substr($redactedResponse, 0, 1000);
 		$excerpt = trim((string) preg_replace('/\s+/', ' ', $excerpt));
+		$redactedRequest = $this->redactCxmlSecrets($request);
+		$requestExcerpt = function_exists('dol_substr') ? dol_substr($redactedRequest, 0, 1500) : substr($redactedRequest, 0, 1500);
+		$requestExcerpt = trim((string) preg_replace('/\s+/', ' ', $requestExcerpt));
 		$message = 'LmdbWurthPunchout cXML setup failed';
 		$message .= ' http_status='.(int) $httpCode;
 		$message .= ' content_type='.$contentType;
@@ -210,6 +221,9 @@ class LmdbWurthPunchoutCxmlClient
 		}
 		if ($excerpt !== '') {
 			$message .= ' response_excerpt='.$excerpt;
+		}
+		if ($requestExcerpt !== '') {
+			$message .= ' request_excerpt='.$requestExcerpt;
 		}
 
 		if (function_exists('dol_syslog')) {
@@ -267,10 +281,20 @@ class LmdbWurthPunchoutCxmlClient
 	 */
 	private function redactCxmlSecrets($content)
 	{
-		return (string) preg_replace(
-			'~<SharedSecret\b[^>]*>.*?</SharedSecret>~is',
-			'<SharedSecret>[REDACTED]</SharedSecret>',
+		$content = (string) preg_replace(
+			array(
+				'~<SharedSecret\b[^>]*>.*?</SharedSecret>~is',
+				'~<BuyerCookie\b[^>]*>.*?</BuyerCookie>~is',
+				'~([?&](?:amp;)?token=)[^&<\s]+~i',
+			),
+			array(
+				'<SharedSecret>[REDACTED]</SharedSecret>',
+				'<BuyerCookie>[REDACTED]</BuyerCookie>',
+				'${1}[REDACTED]',
+			),
 			$content
 		);
+
+		return $content;
 	}
 }

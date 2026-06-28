@@ -96,6 +96,15 @@ if (!$setupDoc->loadXML($setupXml)) {
 	throw new RuntimeException('cXML setup request is not valid XML');
 }
 $setupXPath = new DOMXPath($setupDoc);
+if ($setupDoc->doctype === null || $setupDoc->doctype->systemId !== LmdbWurthPunchoutCxmlClient::CXML_DTD) {
+	throw new RuntimeException('cXML setup request missing expected DTD');
+}
+if ($setupDoc->documentElement === null || $setupDoc->documentElement->getAttribute('version') !== LmdbWurthPunchoutCxmlClient::CXML_VERSION) {
+	throw new RuntimeException('cXML setup request missing expected version');
+}
+if ($setupDoc->documentElement === null || $setupDoc->documentElement->getAttribute('xml:lang') !== 'en-US') {
+	throw new RuntimeException('cXML setup request missing expected xml:lang');
+}
 if ($setupXPath->query('/cXML/Header/Sender/Credential/SharedSecret')->length !== 1) {
 	throw new RuntimeException('cXML setup request missing Sender Credential SharedSecret');
 }
