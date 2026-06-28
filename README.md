@@ -66,7 +66,7 @@ Paramètres principaux :
 - Durée de conservation des payloads
 - Correspondances unités WURTH vers unités Dolibarr
 - Import des frais de port cXML, déduction optionnelle depuis l’écart de TVA WURTH, produit/service de frais de port optionnel et TVA dédiée optionnelle
-- Import REP cXML, barème REP par référence fournisseur WURTH, repli global désactivé par défaut, produit/service REP optionnel et TVA REP dédiée optionnelle
+- Import REP cXML, barème REP par référence fournisseur WURTH, produit/service REP optionnel et TVA REP dédiée optionnelle
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
 

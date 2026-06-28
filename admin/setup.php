@@ -56,7 +56,6 @@ if ($action === 'save_settings') {
 		'CXML_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_CXML_MODE', 'alpha')),
 		'CXML_SHIPPING_FK_PRODUCT' => (string) GETPOSTINT('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT'),
 		'CXML_SHIPPING_VAT_RATE' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE', 'alphanohtml')),
-		'CXML_REP_AMOUNT' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT', 'alphanohtml')),
 		'CXML_REP_FK_PRODUCT' => (string) GETPOSTINT('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT'),
 		'CXML_REP_VAT_RATE' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE', 'alphanohtml')),
 		'OPEN_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_OPEN_MODE', 'alpha')),
@@ -88,9 +87,6 @@ if ($action === 'save_settings') {
 	}
 	if ($settings['CXML_SHIPPING_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_SHIPPING_VAT_RATE']))) {
 		$settings['CXML_SHIPPING_VAT_RATE'] = '';
-	}
-	if ($settings['CXML_REP_AMOUNT'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_AMOUNT']))) {
-		$settings['CXML_REP_AMOUNT'] = '0';
 	}
 	if ($settings['CXML_REP_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_VAT_RATE']))) {
 		$settings['CXML_REP_VAT_RATE'] = '';
@@ -304,8 +300,6 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlInferShippi
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportRep').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepUseFallback').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_REP_USE_FALLBACK', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_REP_USE_FALLBACK', 0) ? 'Yes' : 'No')).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepUseFallbackHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepAmount').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_AMOUNT', '0')).'"> '.dol_escape_htmltag(LmdbWurthPunchoutConfig::getExpectedCurrency()).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepAmountHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepProductHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRateHelp').'</span></td></tr>';
 print '</table>';
@@ -453,22 +447,37 @@ function renderRepMapTable($db)
 	$sql .= ' WHERE entity = '.((int) $conf->entity);
 	$sql .= ' ORDER BY vendor_ref ASC';
 	$resql = $db->query($sql);
+	$rows = array();
+	if ($resql) {
+		while ($obj = $db->fetch_object($resql)) {
+			$rows[] = $obj;
+		}
+	}
+
+	foreach ($rows as $obj) {
+		$formId = 'repmap-'.((int) $obj->rowid);
+		print '<form id="'.$formId.'" method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
+		print '<input type="hidden" name="token" value="'.newToken().'">';
+		print '<input type="hidden" name="action" value="save_repmap">';
+		print '<input type="hidden" name="rowid" value="'.((int) $obj->rowid).'">';
+		print '</form>';
+	}
+	print '<form id="repmap-new" method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="save_repmap">';
+	print '</form>';
 
 	print '<table class="noborder centpercent">';
 	print '<tr class="liste_titre"><th>'.$langs->trans('LmdbWurthPunchoutRepVendorRef').'</th><th>'.$langs->trans('LmdbWurthPunchoutRepAmountPerUnit').'</th><th>'.$langs->trans('Label').'</th><th></th></tr>';
-	if ($resql && $db->num_rows($resql) > 0) {
-		while ($obj = $db->fetch_object($resql)) {
+	if (!empty($rows)) {
+		foreach ($rows as $obj) {
+			$formId = 'repmap-'.((int) $obj->rowid);
 			print '<tr class="oddeven">';
-			print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
-			print '<input type="hidden" name="token" value="'.newToken().'">';
-			print '<input type="hidden" name="action" value="save_repmap">';
-			print '<input type="hidden" name="rowid" value="'.((int) $obj->rowid).'">';
-			print '<td><input class="flat minwidth200" name="vendor_ref" value="'.dol_escape_htmltag($obj->vendor_ref).'"></td>';
-			print '<td><input class="flat width75" name="amount_ht" value="'.dol_escape_htmltag(formatRepAmount((float) $obj->amount_ht)).'"> '.dol_escape_htmltag($currency).'</td>';
-			print '<td><input class="flat minwidth300" name="label" value="'.dol_escape_htmltag($obj->label).'"></td>';
-			print '<td class="right"><input class="button button-save small" type="submit" value="'.$langs->trans('Save').'"> ';
+			print '<td><input form="'.$formId.'" class="flat minwidth200" name="vendor_ref" value="'.dol_escape_htmltag($obj->vendor_ref).'"></td>';
+			print '<td><input form="'.$formId.'" class="flat width75" name="amount_ht" value="'.dol_escape_htmltag(formatRepAmount((float) $obj->amount_ht)).'"> '.dol_escape_htmltag($currency).'</td>';
+			print '<td><input form="'.$formId.'" class="flat minwidth300" name="label" value="'.dol_escape_htmltag($obj->label).'"></td>';
+			print '<td class="right"><input form="'.$formId.'" class="button button-save small" type="submit" value="'.$langs->trans('Save').'"> ';
 			print '<a class="button button-delete small" href="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'?action=delete_repmap&rowid='.((int) $obj->rowid).'&token='.newToken().'">'.$langs->trans('Delete').'</a></td>';
-			print '</form>';
 			print '</tr>';
 		}
 	} elseif (!$resql) {
@@ -478,14 +487,10 @@ function renderRepMapTable($db)
 	}
 	print '<tr class="liste_titre"><td colspan="4">'.$langs->trans('Add').'</td></tr>';
 	print '<tr class="oddeven">';
-	print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
-	print '<input type="hidden" name="token" value="'.newToken().'">';
-	print '<input type="hidden" name="action" value="save_repmap">';
-	print '<td><input class="flat minwidth200" name="vendor_ref" value=""></td>';
-	print '<td><input class="flat width75" name="amount_ht" value=""> '.dol_escape_htmltag($currency).'</td>';
-	print '<td><input class="flat minwidth300" name="label" value=""></td>';
-	print '<td class="right"><input class="button button-add small" type="submit" value="'.$langs->trans('Add').'"></td>';
-	print '</form>';
+	print '<td><input form="repmap-new" class="flat minwidth200" name="vendor_ref" value=""></td>';
+	print '<td><input form="repmap-new" class="flat width75" name="amount_ht" value=""> '.dol_escape_htmltag($currency).'</td>';
+	print '<td><input form="repmap-new" class="flat minwidth300" name="label" value=""></td>';
+	print '<td class="right"><input form="repmap-new" class="button button-add small" type="submit" value="'.$langs->trans('Add').'"></td>';
 	print '</tr>';
 	print '</table>';
 

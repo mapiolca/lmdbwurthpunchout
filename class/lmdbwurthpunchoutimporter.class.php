@@ -754,25 +754,31 @@ class LmdbWurthPunchoutImporter
 			return $mappedAmount;
 		}
 
-		if (!LmdbWurthPunchoutConfig::getInt('CXML_REP_USE_FALLBACK', 0)) {
-			return 0.0;
+		$this->addRepMissingRuleWarning($summary);
+		return 0.0;
+	}
+
+	/**
+	 * Add an import warning when cXML REP cannot be mapped.
+	 *
+	 * @param array<string,mixed> $summary Import summary
+	 * @return void
+	 */
+	private function addRepMissingRuleWarning(&$summary)
+	{
+		if (empty($summary['rep_unmatched_refs']) || !is_array($summary['rep_unmatched_refs'])) {
+			return;
 		}
 
-		$fallbackAmountPerUnit = max(0.0, LmdbWurthPunchoutConfig::getFloat('CXML_REP_AMOUNT', 0.0));
-		if ($fallbackAmountPerUnit <= 0) {
-			return 0.0;
+		$refs = array_values(array_unique(array_map('strval', $summary['rep_unmatched_refs'])));
+		if (empty($refs)) {
+			return;
 		}
 
-		$quantity = 0.0;
-		foreach ($lines as $line) {
-			$quantity += max(0.0, (float) ($line['qty'] ?? 0));
-		}
-		if ($quantity <= 0) {
-			return 0.0;
-		}
-
-		$summary['rep_source'] = 'fallback_per_unit_tax_delta';
-		return round($fallbackAmountPerUnit * $quantity, 2);
+		$summary['warnings'][] = sprintf(
+			$this->trans('LmdbWurthPunchoutRepRuleMissingWarning', 'cXML REP was not imported because no REP rule matches: %s'),
+			implode(', ', $refs)
+		);
 	}
 
 	/**
