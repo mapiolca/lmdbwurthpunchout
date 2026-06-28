@@ -4,6 +4,7 @@ CREATE TABLE llx_lmdbwurthpunchout_repmap (
 	vendor_ref varchar(128) NOT NULL,
 	amount_ht double(24,8) DEFAULT 0 NOT NULL,
 	label varchar(255) NULL,
+	status varchar(16) DEFAULT 'active' NOT NULL,
 	date_creation datetime NULL,
 	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=innodb;

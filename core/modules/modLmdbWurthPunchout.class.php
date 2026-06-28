@@ -214,6 +214,9 @@ class modLmdbWurthPunchout extends DolibarrModules
 				'tax_amount' => 'double(24,8) DEFAULT 0 NOT NULL',
 				'tax_currency' => 'varchar(3) NULL',
 			),
+			'lmdbwurthpunchout_repmap' => array(
+				'status' => "varchar(16) DEFAULT 'active' NOT NULL",
+			),
 		);
 
 		foreach ($columnsByTable as $table => $columns) {

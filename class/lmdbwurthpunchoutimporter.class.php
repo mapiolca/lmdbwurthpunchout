@@ -11,10 +11,59 @@ require_once __DIR__.'/lmdbwurthpunchoutsecurity.class.php';
 require_once __DIR__.'/lmdbwurthpunchoutsession.class.php';
 
 /**
+ * cXML import requires confirmed REP rules before supplier order lines can be created.
+ */
+class LmdbWurthPunchoutRepRulesRequiredException extends RuntimeException
+{
+	/** @var array<int,string> */
+	private $pendingRefs = array();
+
+	/** @var array<string,mixed> */
+	private $summary = array();
+
+	/**
+	 * Constructor.
+	 *
+	 * @param string              $message     Message
+	 * @param array<int,string>   $pendingRefs Pending WURTH references
+	 * @param array<string,mixed> $summary     Import summary
+	 */
+	public function __construct($message, $pendingRefs, $summary)
+	{
+		parent::__construct($message);
+		$this->pendingRefs = $pendingRefs;
+		$this->summary = $summary;
+	}
+
+	/**
+	 * Return pending references.
+	 *
+	 * @return array<int,string>
+	 */
+	public function getPendingRefs()
+	{
+		return $this->pendingRefs;
+	}
+
+	/**
+	 * Return import summary.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function getSummary()
+	{
+		return $this->summary;
+	}
+}
+
+/**
  * Import normalized Punchout lines into Dolibarr.
  */
 class LmdbWurthPunchoutImporter
 {
+	const REP_RULE_STATUS_ACTIVE = 'active';
+	const REP_RULE_STATUS_PENDING = 'pending';
+
 	/** @var DoliDB */
 	private $db;
 
@@ -32,6 +81,40 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
+	 * Build a fresh import summary.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function newImportSummary()
+	{
+		return array(
+			'lines_added' => 0,
+			'shipping_lines_added' => 0,
+			'shipping_detected' => false,
+			'shipping_amount' => 0.0,
+			'shipping_currency' => '',
+			'shipping_inferred_from_tax_delta' => false,
+			'shipping_tax_delta' => 0.0,
+			'shipping_skipped_reason' => '',
+			'rep_lines_added' => 0,
+			'rep_amount' => 0.0,
+			'rep_tax_amount' => 0.0,
+			'rep_tax_delta' => 0.0,
+			'rep_source' => '',
+			'rep_rule_matches' => 0,
+			'rep_unmatched_refs' => array(),
+			'rep_pending_refs' => array(),
+			'rep_rules_autocreated' => 0,
+			'rep_rules_blocked' => 0,
+			'rep_ht_delta_used' => 0.0,
+			'rep_skipped_reason' => '',
+			'products_created' => 0,
+			'supplier_prices_updated' => 0,
+			'warnings' => array(),
+		);
+	}
+
+	/**
 	 * Import a stored returned session transactionally.
 	 *
 	 * @param LmdbWurthPunchoutSession $session Session
@@ -43,6 +126,8 @@ class LmdbWurthPunchoutImporter
 		if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
 			throw new RuntimeException('Punchout session is not importable');
 		}
+
+		$this->assertCxmlRepRulesReady($session);
 
 		$this->db->begin();
 		try {
@@ -70,27 +155,7 @@ class LmdbWurthPunchoutImporter
 	{
 		global $conf;
 
-		$summary = array(
-			'lines_added' => 0,
-			'shipping_lines_added' => 0,
-			'shipping_detected' => false,
-			'shipping_amount' => 0.0,
-			'shipping_currency' => '',
-			'shipping_inferred_from_tax_delta' => false,
-			'shipping_tax_delta' => 0.0,
-			'shipping_skipped_reason' => '',
-			'rep_lines_added' => 0,
-			'rep_amount' => 0.0,
-			'rep_tax_amount' => 0.0,
-			'rep_tax_delta' => 0.0,
-			'rep_source' => '',
-			'rep_rule_matches' => 0,
-			'rep_unmatched_refs' => array(),
-			'rep_skipped_reason' => '',
-			'products_created' => 0,
-			'supplier_prices_updated' => 0,
-			'warnings' => array(),
-		);
+		$summary = $this->newImportSummary();
 
 		$order = new CommandeFournisseur($this->db);
 		if ($order->fetch((int) $session->fk_commandefourn) <= 0) {
@@ -181,6 +246,58 @@ class LmdbWurthPunchoutImporter
 		$order->update_price(1, 'auto', 0, $order->thirdparty);
 
 		return $summary;
+	}
+
+	/**
+	 * Ensure cXML REP rules are confirmed before any supplier order line is written.
+	 *
+	 * @param LmdbWurthPunchoutSession $session Session
+	 * @return void
+	 */
+	private function assertCxmlRepRulesReady($session)
+	{
+		if (strtoupper((string) $session->protocol) !== 'CXML' || !LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+			return;
+		}
+
+		$basket = $this->decodeBasketPayload($session);
+		if (empty($basket)) {
+			return;
+		}
+
+		$lines = $session->fetchLines();
+		if (empty($lines)) {
+			return;
+		}
+
+		$summary = $this->newImportSummary();
+		$repHtDelta = $this->calculateHeaderTotalRepDelta($basket, $lines);
+		if ($repHtDelta > 0) {
+			$summary['rep_ht_delta_used'] = $repHtDelta;
+			if ($this->autoActivateRepRuleFromHtDelta($lines, (int) $session->entity, $repHtDelta, $summary)) {
+				return;
+			}
+		}
+
+		$taxDelta = $this->calculateHeaderTaxDelta($basket, $lines);
+		$summary['shipping_tax_delta'] = $taxDelta;
+		$summary['rep_tax_delta'] = $taxDelta;
+		if ($taxDelta <= 0.01 && $repHtDelta <= 0) {
+			return;
+		}
+
+		$pendingRefs = $this->ensurePendingRepRulesForLines($lines, (int) $session->entity, $summary);
+		if (!empty($pendingRefs)) {
+			$summary['rep_rules_blocked'] = count($pendingRefs);
+			$summary['rep_pending_refs'] = $pendingRefs;
+			$message = $this->transWithParams(
+				'LmdbWurthPunchoutRepRulesRequired',
+				'cXML REP rules must be completed before import: %s',
+				array(implode(', ', $pendingRefs))
+			);
+			$summary['warnings'][] = $message;
+			throw new LmdbWurthPunchoutRepRulesRequiredException($message, $pendingRefs, $summary);
+		}
 	}
 
 	/**
@@ -604,6 +721,209 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
+	 * Calculate a REP amount from a reliable cXML header total delta.
+	 *
+	 * @param array<string,mixed>            $basket Basket metadata
+	 * @param array<int,array<string,mixed>> $lines  Normalized lines
+	 * @return float
+	 */
+	private function calculateHeaderTotalRepDelta($basket, $lines)
+	{
+		if (!isset($basket['header']) || !is_array($basket['header'])) {
+			return 0.0;
+		}
+		if (empty($basket['header']['total']) || !is_array($basket['header']['total']) || empty($basket['header']['total']['has_value'])) {
+			return 0.0;
+		}
+		if (empty($basket['header']['shipping']) || !is_array($basket['header']['shipping']) || empty($basket['header']['shipping']['has_value'])) {
+			return 0.0;
+		}
+
+		$total = $basket['header']['total'];
+		$shipping = $basket['header']['shipping'];
+		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
+		if (strtoupper((string) ($total['currency'] ?? $expectedCurrency)) !== $expectedCurrency) {
+			return 0.0;
+		}
+		if (strtoupper((string) ($shipping['currency'] ?? $expectedCurrency)) !== $expectedCurrency) {
+			return 0.0;
+		}
+
+		$shippingAmount = (float) ($shipping['amount'] ?? 0);
+		if ($shippingAmount <= 0) {
+			return 0.0;
+		}
+
+		$lineTotal = 0.0;
+		foreach ($lines as $line) {
+			$lineTotal += (float) ($line['qty'] ?? 0) * (float) ($line['unit_price_ht'] ?? 0);
+		}
+
+		$delta = round((float) ($total['amount'] ?? 0) - $lineTotal - $shippingAmount, 2);
+		return $delta > 0 ? $delta : 0.0;
+	}
+
+	/**
+	 * Calculate the difference between header tax and line taxes.
+	 *
+	 * @param array<string,mixed>            $basket Basket metadata
+	 * @param array<int,array<string,mixed>> $lines  Normalized lines
+	 * @return float
+	 */
+	private function calculateHeaderTaxDelta($basket, $lines)
+	{
+		if (!isset($basket['header']) || !is_array($basket['header']) || !isset($basket['header']['tax']) || !is_array($basket['header']['tax'])) {
+			return 0.0;
+		}
+
+		$headerTax = $basket['header']['tax'];
+		if (empty($headerTax['has_value'])) {
+			return 0.0;
+		}
+
+		$lineTaxAmount = 0.0;
+		foreach ($lines as $line) {
+			$lineTaxAmount += (float) ($line['tax_amount'] ?? 0);
+		}
+
+		return round((float) ($headerTax['amount'] ?? 0) - $lineTaxAmount, 6);
+	}
+
+	/**
+	 * Auto-activate a single missing REP rule from a reliable header HT delta.
+	 *
+	 * @param array<int,array<string,mixed>> $lines      Normalized lines
+	 * @param int                            $entity     Entity
+	 * @param float                          $repHtDelta REP amount without tax
+	 * @param array<string,mixed>            $summary    Import summary
+	 * @return bool
+	 */
+	private function autoActivateRepRuleFromHtDelta($lines, $entity, $repHtDelta, &$summary)
+	{
+		$candidates = $this->collectRepRuleCandidates($lines);
+		if (empty($candidates)) {
+			return false;
+		}
+
+		$knownAmount = 0.0;
+		$missing = array();
+		foreach ($candidates as $candidate) {
+			$rule = $this->findRepRule((string) $candidate['incoming_ref'], $entity, array(self::REP_RULE_STATUS_ACTIVE));
+			if (is_array($rule)) {
+				$knownAmount += (float) $rule['amount_ht'] * (float) $candidate['qty'];
+				continue;
+			}
+			$missing[] = $candidate;
+		}
+
+		if (empty($missing)) {
+			return true;
+		}
+		if (count($missing) !== 1) {
+			return false;
+		}
+
+		$remainingAmount = round($repHtDelta - $knownAmount, 8);
+		if ($remainingAmount < -0.000001) {
+			return false;
+		}
+
+		$candidate = $missing[0];
+		$qty = (float) $candidate['qty'];
+		if ($qty <= 0) {
+			return false;
+		}
+
+		$amountPerUnit = max(0.0, $remainingAmount) / $qty;
+		if ($this->upsertRepRule((string) $candidate['rule_ref'], (string) $candidate['label'], $amountPerUnit, self::REP_RULE_STATUS_ACTIVE, $entity) < 0) {
+			throw new RuntimeException('Unable to create cXML REP rule: '.$candidate['rule_ref']);
+		}
+
+		$summary['rep_rules_autocreated'] = (int) $summary['rep_rules_autocreated'] + 1;
+		$summary['rep_source'] = 'header_total_ht_delta';
+
+		return true;
+	}
+
+	/**
+	 * Ensure pending REP rules exist for all unmatched cXML lines.
+	 *
+	 * @param array<int,array<string,mixed>> $lines   Normalized lines
+	 * @param int                            $entity  Entity
+	 * @param array<string,mixed>            $summary Import summary
+	 * @return array<int,string>
+	 */
+	private function ensurePendingRepRulesForLines($lines, $entity, &$summary)
+	{
+		$pendingRefs = array();
+		foreach ($this->collectRepRuleCandidates($lines) as $candidate) {
+			$activeRule = $this->findRepRule((string) $candidate['incoming_ref'], $entity, array(self::REP_RULE_STATUS_ACTIVE));
+			if (is_array($activeRule)) {
+				continue;
+			}
+
+			$pendingRule = $this->findRepRule((string) $candidate['incoming_ref'], $entity, array(self::REP_RULE_STATUS_PENDING));
+			if (!is_array($pendingRule)) {
+				if ($this->upsertRepRule((string) $candidate['rule_ref'], (string) $candidate['label'], 0.0, self::REP_RULE_STATUS_PENDING, $entity) < 0) {
+					throw new RuntimeException('Unable to create pending cXML REP rule: '.$candidate['rule_ref']);
+				}
+				$summary['rep_rules_autocreated'] = (int) $summary['rep_rules_autocreated'] + 1;
+			}
+
+			$pendingRefs[] = (string) $candidate['rule_ref'];
+		}
+
+		return array_values(array_unique($pendingRefs));
+	}
+
+	/**
+	 * Collect unique REP rule candidates from cXML lines.
+	 *
+	 * @param array<int,array<string,mixed>> $lines Normalized lines
+	 * @return array<int,array{incoming_ref:string,rule_ref:string,label:string,qty:float}>
+	 */
+	private function collectRepRuleCandidates($lines)
+	{
+		$candidates = array();
+		foreach ($lines as $line) {
+			$incomingRef = trim((string) ($line['vendor_ref'] ?? ''));
+			if ($incomingRef === '') {
+				continue;
+			}
+
+			$ruleRef = $this->buildRepRuleReference($incomingRef);
+			$key = $this->normalizeRepReference($ruleRef);
+			if (!isset($candidates[$key])) {
+				$candidates[$key] = array(
+					'incoming_ref' => $incomingRef,
+					'rule_ref' => $ruleRef,
+					'label' => dol_trunc((string) ($line['label'] ?? $incomingRef), 255),
+					'qty' => 0.0,
+				);
+			}
+			$candidates[$key]['qty'] += max(0.0, (float) ($line['qty'] ?? 0));
+		}
+
+		return array_values($candidates);
+	}
+
+	/**
+	 * Build the preferred REP rule reference from a WURTH cXML reference.
+	 *
+	 * @param string $reference cXML reference
+	 * @return string
+	 */
+	private function buildRepRuleReference($reference)
+	{
+		$normalized = $this->normalizeRepReference($reference);
+		if (preg_match('/^\d{11,}$/', $normalized)) {
+			return substr($normalized, 0, 10);
+		}
+
+		return trim($reference);
+	}
+
+	/**
 	 * Infer missing WURTH cXML additional fees from the header tax delta.
 	 *
 	 * Some WURTH cXML returns send Shipping/Money at 0 while the header tax
@@ -749,12 +1069,15 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function getRepAmountForTaxDelta($lines, $entity, &$summary)
 	{
+		$unmatchedBefore = count($summary['rep_unmatched_refs']);
 		$mappedAmount = $this->getRepAmountFromRules($lines, $entity, $summary);
 		if ($mappedAmount > 0) {
 			return $mappedAmount;
 		}
 
-		$this->addRepMissingRuleWarning($summary);
+		if (count($summary['rep_unmatched_refs']) > $unmatchedBefore) {
+			$this->addRepMissingRuleWarning($summary);
+		}
 		return 0.0;
 	}
 
@@ -801,13 +1124,13 @@ class LmdbWurthPunchoutImporter
 				continue;
 			}
 
-			$amountPerUnit = $this->findRepAmountPerUnit($vendorRef, $entity);
-			if ($amountPerUnit <= 0) {
+			$rule = $this->findRepRule($vendorRef, $entity, array(self::REP_RULE_STATUS_ACTIVE));
+			if (!is_array($rule)) {
 				$summary['rep_unmatched_refs'][] = $vendorRef;
 				continue;
 			}
 
-			$total += $amountPerUnit * max(0.0, (float) ($line['qty'] ?? 0));
+			$total += (float) $rule['amount_ht'] * max(0.0, (float) ($line['qty'] ?? 0));
 			$matches++;
 		}
 
@@ -820,19 +1143,27 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
-	 * Find REP amount without tax per unit for a WURTH supplier reference.
+	 * Find a REP rule for a WURTH supplier reference.
 	 *
-	 * @param string $vendorRef Supplier reference
-	 * @param int    $entity    Entity
-	 * @return float
+	 * @param string            $vendorRef Supplier reference
+	 * @param int               $entity    Entity
+	 * @param array<int,string> $statuses  Accepted statuses
+	 * @return array{vendor_ref:string,amount_ht:float,status:string}|null
 	 */
-	private function findRepAmountPerUnit($vendorRef, $entity)
+	private function findRepRule($vendorRef, $entity, $statuses)
 	{
 		$entities = array_values(array_unique(array((int) $entity, 1)));
 
-		$sql = 'SELECT entity, vendor_ref, amount_ht';
+		$sql = 'SELECT entity, vendor_ref, amount_ht, status';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
 		$sql .= ' WHERE entity IN ('.implode(', ', $entities).')';
+		if (!empty($statuses)) {
+			$statusSql = array();
+			foreach ($statuses as $status) {
+				$statusSql[] = "'".$this->db->escape($status)."'";
+			}
+			$sql .= ' AND status IN ('.implode(', ', $statusSql).')';
+		}
 		$sql .= ' ORDER BY entity DESC, LENGTH(vendor_ref) DESC';
 
 		$resql = $this->db->query($sql);
@@ -840,12 +1171,12 @@ class LmdbWurthPunchoutImporter
 			if (function_exists('dol_syslog')) {
 				dol_syslog('LmdbWurthPunchout REP mapping SQL error: '.$this->db->lasterror(), LOG_ERR);
 			}
-			return 0.0;
+			return null;
 		}
 
 		$incomingRef = trim($vendorRef);
 		$incomingNormalizedRef = $this->normalizeRepReference($incomingRef);
-		$bestAmount = 0.0;
+		$bestRule = null;
 		$bestSpecificity = 0;
 
 		while ($obj = $this->db->fetch_object($resql)) {
@@ -866,11 +1197,65 @@ class LmdbWurthPunchoutImporter
 
 			if ($specificity > $bestSpecificity) {
 				$bestSpecificity = $specificity;
-				$bestAmount = max(0.0, (float) $obj->amount_ht);
+				$bestRule = array(
+					'vendor_ref' => $ruleRef,
+					'amount_ht' => max(0.0, (float) $obj->amount_ht),
+					'status' => (string) $obj->status,
+				);
 			}
 		}
 
-		return $bestAmount;
+		return $bestRule;
+	}
+
+	/**
+	 * Create or update a REP rule in the current entity.
+	 *
+	 * @param string $vendorRef Rule reference
+	 * @param string $label     Label
+	 * @param float  $amount    Unit amount without tax
+	 * @param string $status    Rule status
+	 * @param int    $entity    Entity
+	 * @return int
+	 */
+	private function upsertRepRule($vendorRef, $label, $amount, $status, $entity)
+	{
+		$vendorRef = trim($vendorRef);
+		if ($vendorRef === '') {
+			return -1;
+		}
+		if (!in_array($status, array(self::REP_RULE_STATUS_ACTIVE, self::REP_RULE_STATUS_PENDING), true)) {
+			$status = self::REP_RULE_STATUS_PENDING;
+		}
+
+		$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
+		$sql .= ' WHERE entity = '.((int) $entity);
+		$sql .= " AND vendor_ref = '".$this->db->escape($vendorRef)."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			return -1;
+		}
+
+		$obj = $this->db->fetch_object($resql);
+		if ($obj) {
+			$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap SET';
+			$sql .= ' amount_ht = '.price2num(max(0.0, $amount), 'MU');
+			$sql .= ", label = '".$this->db->escape($label)."'";
+			$sql .= ", status = '".$this->db->escape($status)."'";
+			$sql .= ' WHERE rowid = '.((int) $obj->rowid);
+			$sql .= ' AND entity = '.((int) $entity);
+			return $this->db->query($sql) ? 1 : -1;
+		}
+
+		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap (entity, vendor_ref, amount_ht, label, status, date_creation)';
+		$sql .= ' VALUES ('.((int) $entity);
+		$sql .= ", '".$this->db->escape($vendorRef)."'";
+		$sql .= ', '.price2num(max(0.0, $amount), 'MU');
+		$sql .= ", '".$this->db->escape($label)."'";
+		$sql .= ", '".$this->db->escape($status)."'";
+		$sql .= ", '".$this->db->idate(dol_now())."')";
+
+		return $this->db->query($sql) ? 1 : -1;
 	}
 
 	/**
