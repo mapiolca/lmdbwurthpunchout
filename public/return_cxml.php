@@ -39,19 +39,13 @@ if (!$res) {
 
 require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlpayload.class.php';
 require_once __DIR__.'/return_common.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
 
 $token = GETPOST('token', 'alphanohtml');
 $entity = GETPOSTINT('entity');
-$rawPayload = GETPOST('cXML-urlencoded', 'none');
-if ($rawPayload === '') {
-	$rawPayload = GETPOST('cxml-urlencoded', 'none');
-}
-if ($rawPayload === '') {
-	$rawPayload = (string) file_get_contents('php://input');
-}
 
 $session = new LmdbWurthPunchoutSession($db);
 if ($token === '' || $entity <= 0 || $session->fetchByToken($token, $entity) <= 0) {
@@ -69,6 +63,7 @@ if (!in_array($session->status, array(LmdbWurthPunchoutSession::STATUS_CREATED, 
 }
 
 try {
+	$rawPayload = LmdbWurthPunchoutCxmlPayload::extract($_POST, (string) file_get_contents('php://input'));
 	$parser = new LmdbWurthPunchoutParser();
 	$lines = $parser->parseCxml($rawPayload);
 	$summary = lmdbwurthpunchoutStoreAndImportReturn($session, 'CXML', $rawPayload, $lines);

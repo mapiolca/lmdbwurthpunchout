@@ -21,7 +21,8 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Bouton `Punchout WURTH` ajouté par hook sur la fiche commande fournisseur.
 - Affichage du bouton uniquement si la commande est brouillon, liée au tiers WURTH configuré, dans l'entité active propriétaire, et si l'utilisateur a les droits nécessaires.
 - Flux OCI avec `ORGANIZATION`, `NAME`, `PASSWORD` et `HOOK_URL`.
-- Flux cXML avec requête `PunchOutSetupRequest` et parsing du retour `PunchOutOrderMessage`.
+- Flux cXML avec requête `PunchOutSetupRequest` conforme, `SharedSecret` dans `Sender/Credential`, et parsing du retour `PunchOutOrderMessage`.
+- Retour panier cXML en `cXML-urlencoded` ou `cXML-base64`.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.
@@ -93,7 +94,8 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Configuration cXML complète et incomplète.
 - Bouton visible/invisible selon tiers, statut, droits et entité.
 - Retour OCI avec champs `NEW_ITEM-*`.
-- Retour cXML avec `PunchOutOrderMessage`.
+- Retour cXML avec `PunchOutOrderMessage` en `cXML-urlencoded`.
+- Retour cXML avec `PunchOutOrderMessage` en `cXML-base64`.
 - Import sans token CSRF refusé.
 - Import avec token CSRF accepté.
 - Double retour ou double import refusé.

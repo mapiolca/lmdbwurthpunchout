@@ -25,6 +25,13 @@ if (!function_exists('getDolGlobalString')) {
 			'LMDBWURTHPUNCHOUT_DEFAULT_VAT' => '20',
 			'LMDBWURTHPUNCHOUT_CURRENCY' => 'EUR',
 			'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE' => 'divide',
+			'LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN' => 'NetworkID',
+			'LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY' => 'buyer',
+			'LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN' => 'DUNS',
+			'LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY' => 'supplier',
+			'LMDBWURTHPUNCHOUT_CXML_SHARED_SECRET' => 'secret',
+			'LMDBWURTHPUNCHOUT_CXML_URL' => 'https://example.invalid/cxml',
+			'LMDBWURTHPUNCHOUT_CXML_MODE' => 'test',
 		);
 		return $defaults[$key] ?? $default;
 	}
@@ -37,6 +44,8 @@ if (!function_exists('getDolGlobalInt')) {
 }
 
 require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlclient.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlpayload.class.php';
 
 $parser = new LmdbWurthPunchoutParser();
 
@@ -78,6 +87,45 @@ $cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrde
 $cxmlLines = $parser->parseCxml($cxml);
 if (count($cxmlLines) !== 1 || $cxmlLines[0]['vendor_ref'] !== '0890108715063' || abs($cxmlLines[0]['unit_price_ht'] - 3.5) > 0.000001) {
 	throw new RuntimeException('cXML parser test failed');
+}
+
+$client = new LmdbWurthPunchoutCxmlClient();
+$setupXml = $client->buildSetupRequest('https://dolibarr.example/custom/lmdbwurthpunchout/public/return_cxml.php?entity=1&token=test', 'buyer-cookie');
+$setupDoc = new DOMDocument();
+if (!$setupDoc->loadXML($setupXml)) {
+	throw new RuntimeException('cXML setup request is not valid XML');
+}
+$setupXPath = new DOMXPath($setupDoc);
+if ($setupXPath->query('/cXML/Header/Sender/Credential/SharedSecret')->length !== 1) {
+	throw new RuntimeException('cXML setup request missing Sender Credential SharedSecret');
+}
+if ($setupXPath->query('/cXML/Header/Sender/SharedSecret')->length !== 0) {
+	throw new RuntimeException('cXML setup request has SharedSecret at Sender level');
+}
+
+$rejectedSetupXml = '<?xml version="1.0"?><cXML><Response><Status code="401" text="Unauthorized"/></Response></cXML>';
+try {
+	$client->parseStartPageUrl($rejectedSetupXml, 200, 'text/xml', 'https://example.invalid/cxml');
+	throw new RuntimeException('cXML rejected setup response test failed');
+} catch (RuntimeException $exception) {
+	if (strpos($exception->getMessage(), 'cXML setup rejected: 401 Unauthorized') === false) {
+		throw $exception;
+	}
+}
+
+$urlencodedPayload = LmdbWurthPunchoutCxmlPayload::extract(array('cXML-urlencoded' => $cxml));
+if ($urlencodedPayload !== $cxml) {
+	throw new RuntimeException('cXML-urlencoded return extraction failed');
+}
+
+$base64Payload = LmdbWurthPunchoutCxmlPayload::extract(array('CXML-BASE64' => base64_encode($cxml)));
+if ($base64Payload !== $cxml) {
+	throw new RuntimeException('cXML-base64 return extraction failed');
+}
+
+$base64FirstPayload = LmdbWurthPunchoutCxmlPayload::extract(array('cXML-urlencoded' => '<invalid/>', 'cXML-base64' => base64_encode($cxml)));
+if ($base64FirstPayload !== $cxml) {
+	throw new RuntimeException('cXML-base64 return extraction priority failed');
 }
 
 echo "Parser examples OK\n";

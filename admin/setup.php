@@ -49,6 +49,8 @@ if ($action === 'save_settings') {
 		'CXML_URL' => GETPOST('LMDBWURTHPUNCHOUT_CXML_URL', 'restricthtml'),
 		'CXML_CUSTOMER_DOMAIN' => GETPOST('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN', 'restricthtml'),
 		'CXML_CUSTOMER_IDENTITY' => GETPOST('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY', 'restricthtml'),
+		'CXML_SENDER_DOMAIN' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN', 'restricthtml'),
+		'CXML_SENDER_IDENTITY' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY', 'restricthtml'),
 		'CXML_SUPPLIER_DOMAIN' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN', 'restricthtml'),
 		'CXML_SUPPLIER_IDENTITY' => GETPOST('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY', 'restricthtml'),
 		'CXML_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_CXML_MODE', 'alpha')),
@@ -221,6 +223,8 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlUrl').'</td
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSharedSecret').'</td><td><input class="flat minwidth200" type="password" autocomplete="new-password" name="LMDBWURTHPUNCHOUT_CXML_SHARED_SECRET" value="" placeholder="'.(LmdbWurthPunchoutConfig::getSecret('CXML_SHARED_SECRET') !== '' ? dol_escape_htmltag($langs->trans('LmdbWurthPunchoutSecretAlreadySaved')) : '').'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SENDER_DOMAIN')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SENDER_IDENTITY')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Mode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_MODE', $cxmlModeOptions, LmdbWurthPunchoutConfig::getString('CXML_MODE', 'production'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth150').'</td></tr>';
