@@ -95,7 +95,7 @@ if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
 	if (!empty($importLog['rep_pending_refs']) && is_array($importLog['rep_pending_refs'])) {
 		print '<div class="warning">'.$langs->trans('LmdbWurthPunchoutRepRulesRequiredIntro').'</div>';
 		print '<p>'.dol_escape_htmltag($langs->trans('LmdbWurthPunchoutRepPendingRefs', implode(', ', $importLog['rep_pending_refs']))).'</p>';
-		print '<p><a class="button button-edit" href="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'#repmap">'.$langs->trans('LmdbWurthPunchoutCompleteRepRules').'</a></p>';
+		print '<p><a class="button button-edit" href="'.dol_buildpath('/lmdbwurthpunchout/admin/repmap.php', 1).'">'.$langs->trans('LmdbWurthPunchoutCompleteRepRules').'</a></p>';
 	}
 	print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';

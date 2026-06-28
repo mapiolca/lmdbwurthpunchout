@@ -120,7 +120,7 @@ function lmdbwurthpunchoutRenderRepRulesRequired($session, $exception)
 {
 	global $langs;
 
-	$setupUrl = dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'#repmap';
+	$setupUrl = dol_buildpath('/lmdbwurthpunchout/admin/repmap.php', 1);
 	$importUrl = dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.(int) $session->id;
 	$orderUrl = DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn;
 

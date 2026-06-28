@@ -26,6 +26,11 @@ function lmdbwurthpunchoutAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
+	$head[$h][0] = dol_buildpath('/lmdbwurthpunchout/admin/repmap.php', 1);
+	$head[$h][1] = $langs->trans('LmdbWurthPunchoutRepMapping');
+	$head[$h][2] = 'repmap';
+	$h++;
+
 	$head[$h][0] = dol_buildpath('/lmdbwurthpunchout/admin/compatibility.php', 1);
 	$head[$h][1] = $langs->trans('Compatibility');
 	$head[$h][2] = 'compatibility';
@@ -72,6 +77,7 @@ function lmdbwurthpunchoutPrintAdminHeader($activeTab)
 
 	$helpKeys = array(
 		'settings' => 'LmdbWurthPunchoutSettingsPageHelp',
+		'repmap' => 'LmdbWurthPunchoutRepMappingPageHelp',
 		'compatibility' => 'LmdbWurthPunchoutCompatibilityPageHelp',
 		'sessions' => 'LmdbWurthPunchoutSessionsPageHelp',
 		'about' => 'LmdbWurthPunchoutAboutPageHelp',

@@ -3,6 +3,7 @@ LmdbWurthPunchoutModuleDescription=Connecteur Punchout WURTH pour commandes four
 LmdbWurthPunchoutModuleDescriptionLong=Ajoute un flux Punchout WURTH OCI/cXML sécurisé pour rapatrier un panier WURTH dans une commande fournisseur brouillon Dolibarr.
 LmdbWurthPunchoutSetup=Configuration Punchout WURTH
 LmdbWurthPunchoutSettingsPageHelp=Page de configuration Punchout WURTH.
+LmdbWurthPunchoutRepMappingPageHelp=Gestion des règles REP WURTH actives ou à compléter. Les règles à compléter bloquent l’import cXML tant qu’un montant n’est pas confirmé.
 LmdbWurthPunchoutCompatibilityPageHelp=Contrôle de compatibilité de l’environnement Dolibarr et PHP.
 LmdbWurthPunchoutSessionsPageHelp=Suivi des sessions Punchout WURTH et de leur état d’import.
 LmdbWurthPunchoutAboutPageHelp=Informations de maintenance du module Punchout WURTH.

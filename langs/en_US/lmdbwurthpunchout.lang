@@ -3,6 +3,7 @@ LmdbWurthPunchoutModuleDescription=WURTH Punchout connector for supplier orders
 LmdbWurthPunchoutModuleDescriptionLong=Adds a secure OCI/cXML WURTH Punchout flow to import a WURTH basket into a draft Dolibarr supplier order.
 LmdbWurthPunchoutSetup=WURTH Punchout setup
 LmdbWurthPunchoutSettingsPageHelp=WURTH Punchout configuration page.
+LmdbWurthPunchoutRepMappingPageHelp=Manage active or pending WURTH REP rules. Pending rules block cXML import until an amount is confirmed.
 LmdbWurthPunchoutCompatibilityPageHelp=Dolibarr and PHP environment compatibility check.
 LmdbWurthPunchoutSessionsPageHelp=WURTH Punchout session tracking and import status.
 LmdbWurthPunchoutAboutPageHelp=WURTH Punchout module maintenance information.

@@ -46,6 +46,7 @@ admin/setup.php@lmdbwurthpunchout
 Onglets internes disponibles :
 
 - Réglages
+- Barème REP WURTH
 - Compatibilité
 - Sessions Punchout
 - À propos
@@ -66,7 +67,8 @@ Paramètres principaux :
 - Durée de conservation des payloads
 - Correspondances unités WURTH vers unités Dolibarr
 - Import des frais de port cXML, déduction optionnelle depuis l’écart de TVA WURTH, produit/service de frais de port optionnel et TVA dédiée optionnelle
-- Import REP cXML, barème REP par référence fournisseur WURTH, produit/service REP optionnel et TVA REP dédiée optionnelle
+- Import REP cXML, produit/service REP optionnel et TVA REP dédiée optionnelle
+- Barème REP par référence fournisseur WURTH dans un onglet de réglages dédié
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
 
