@@ -56,6 +56,9 @@ if ($action === 'save_settings') {
 		'CXML_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_CXML_MODE', 'alpha')),
 		'CXML_SHIPPING_FK_PRODUCT' => (string) GETPOSTINT('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT'),
 		'CXML_SHIPPING_VAT_RATE' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE', 'alphanohtml')),
+		'CXML_REP_AMOUNT' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT', 'alphanohtml')),
+		'CXML_REP_FK_PRODUCT' => (string) GETPOSTINT('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT'),
+		'CXML_REP_VAT_RATE' => trim(GETPOST('LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE', 'alphanohtml')),
 		'OPEN_MODE' => strtolower(GETPOST('LMDBWURTHPUNCHOUT_OPEN_MODE', 'alpha')),
 		'CURRENCY' => strtoupper(GETPOST('LMDBWURTHPUNCHOUT_CURRENCY', 'alpha')),
 		'DEFAULT_VAT' => GETPOST('LMDBWURTHPUNCHOUT_DEFAULT_VAT', 'alphanohtml'),
@@ -85,6 +88,12 @@ if ($action === 'save_settings') {
 	}
 	if ($settings['CXML_SHIPPING_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_SHIPPING_VAT_RATE']))) {
 		$settings['CXML_SHIPPING_VAT_RATE'] = '';
+	}
+	if ($settings['CXML_REP_AMOUNT'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_AMOUNT']))) {
+		$settings['CXML_REP_AMOUNT'] = '0.01';
+	}
+	if ($settings['CXML_REP_VAT_RATE'] !== '' && !is_numeric(str_replace(',', '.', $settings['CXML_REP_VAT_RATE']))) {
+		$settings['CXML_REP_VAT_RATE'] = '';
 	}
 
 	foreach ($settings as $key => $value) {
@@ -238,13 +247,17 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportShipp
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDelta').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1) ? 'Yes' : 'No')).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDeltaHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportRep').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepAmount').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_AMOUNT" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_AMOUNT', '0.01')).'"> '.dol_escape_htmltag(LmdbWurthPunchoutConfig::getExpectedCurrency()).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepAmountHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepProductHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRateHelp').'</span></td></tr>';
 print '</table>';
 
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
 print '</form>';
 
 if (function_exists('ajax_combobox')) {
-	foreach (array('LMDBWURTHPUNCHOUT_PROTOCOL', 'LMDBWURTHPUNCHOUT_FK_SOC', 'LMDBWURTHPUNCHOUT_OPEN_MODE', 'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'LMDBWURTHPUNCHOUT_OCI_METHOD', 'LMDBWURTHPUNCHOUT_CXML_MODE', 'LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT') as $htmlname) {
+	foreach (array('LMDBWURTHPUNCHOUT_PROTOCOL', 'LMDBWURTHPUNCHOUT_FK_SOC', 'LMDBWURTHPUNCHOUT_OPEN_MODE', 'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'LMDBWURTHPUNCHOUT_OCI_METHOD', 'LMDBWURTHPUNCHOUT_CXML_MODE', 'LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', 'LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT') as $htmlname) {
 		ajax_combobox($htmlname);
 	}
 }

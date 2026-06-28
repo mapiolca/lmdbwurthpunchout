@@ -79,6 +79,12 @@ class LmdbWurthPunchoutImporter
 			'shipping_inferred_from_tax_delta' => false,
 			'shipping_tax_delta' => 0.0,
 			'shipping_skipped_reason' => '',
+			'rep_lines_added' => 0,
+			'rep_amount' => 0.0,
+			'rep_tax_amount' => 0.0,
+			'rep_tax_delta' => 0.0,
+			'rep_source' => '',
+			'rep_skipped_reason' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
 			'warnings' => array(),
@@ -168,7 +174,7 @@ class LmdbWurthPunchoutImporter
 			$summary['lines_added']++;
 		}
 
-		$this->importCxmlShippingLine($session, $order, $lines, $summary);
+		$this->importCxmlAdditionalLines($session, $order, $lines, $summary);
 
 		$order->update_price(1, 'auto', 0, $order->thirdparty);
 
@@ -396,7 +402,7 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
-	 * Add cXML shipping fees as a supplier order line when requested.
+	 * Add cXML additional fees as supplier order lines when requested.
 	 *
 	 * @param LmdbWurthPunchoutSession  $session Session
 	 * @param CommandeFournisseur       $order   Supplier order
@@ -404,7 +410,7 @@ class LmdbWurthPunchoutImporter
 	 * @param array<string,mixed>       $summary Import summary
 	 * @return void
 	 */
-	private function importCxmlShippingLine($session, $order, $lines, &$summary)
+	private function importCxmlAdditionalLines($session, $order, $lines, &$summary)
 	{
 		if (strtoupper((string) $session->protocol) !== 'CXML') {
 			return;
@@ -422,46 +428,121 @@ class LmdbWurthPunchoutImporter
 		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
 		$shippingCurrency = strtoupper((string) ($shipping['currency'] ?? $expectedCurrency));
 		$shippingVatRate = $this->getShippingVatRate($lines);
+		$repAmount = 0.0;
+		$repVatRate = $this->getRepVatRate($lines);
 
 		$summary['shipping_detected'] = true;
 		$summary['shipping_amount'] = $shippingAmount;
 		$summary['shipping_currency'] = $shippingCurrency;
 
 		if ($shippingAmount <= 0) {
-			$inferredShippingAmount = $this->inferCxmlShippingAmountFromTaxDelta($basket, $lines, $shippingVatRate, $summary);
+			$additionalFees = $this->inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, $summary);
+			$inferredShippingAmount = (float) $additionalFees['shipping_amount'];
+			$repAmount = (float) $additionalFees['rep_amount'];
 			if ($inferredShippingAmount <= 0) {
 				$summary['shipping_skipped_reason'] = 'zero_amount';
-				return;
 			}
 
 			$shippingAmount = $inferredShippingAmount;
 			$summary['shipping_amount'] = $shippingAmount;
-			$summary['shipping_inferred_from_tax_delta'] = true;
+			if ($shippingAmount > 0) {
+				$summary['shipping_inferred_from_tax_delta'] = true;
+			}
 		}
 
 		if ($shippingCurrency !== $expectedCurrency) {
 			throw new RuntimeException('Unexpected cXML shipping currency: '.$shippingCurrency.' (expected '.$expectedCurrency.')');
 		}
 
-		if (!LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1)) {
+		if ($shippingAmount > 0 && !LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1)) {
 			$summary['shipping_skipped_reason'] = 'disabled';
 			$summary['warnings'][] = $this->trans('LmdbWurthPunchoutShippingImportDisabled', 'cXML shipping fees were not imported because the option is disabled');
+			$shippingAmount = 0.0;
+		}
+
+		if ($shippingAmount > 0) {
+			$result = $this->addCxmlChargeLine(
+				$order,
+				$this->buildShippingDescription($shipping),
+				$shippingAmount,
+				$shippingVatRate,
+				LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'),
+				'Configured cXML shipping product/service not found: #',
+				'Unable to add cXML shipping supplier order line'
+			);
+
+			$summary['lines_added']++;
+			$summary['shipping_lines_added'] = 1;
+			$summary['shipping_order_line_id'] = (int) $result;
+			$summary['shipping_skipped_reason'] = '';
+		}
+
+		if ($repAmount > 0) {
+			$this->importCxmlRepLine($order, $repAmount, $repVatRate, $summary);
+		}
+	}
+
+	/**
+	 * Add a cXML REP fee line.
+	 *
+	 * @param CommandeFournisseur  $order      Supplier order
+	 * @param float                $repAmount  REP amount without tax
+	 * @param float                $repVatRate REP VAT rate
+	 * @param array<string,mixed>  $summary    Import summary
+	 * @return void
+	 */
+	private function importCxmlRepLine($order, $repAmount, $repVatRate, &$summary)
+	{
+		$summary['rep_amount'] = $repAmount;
+		$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
+
+		if (!LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+			$summary['rep_skipped_reason'] = 'disabled';
 			return;
 		}
 
-		$productId = LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT');
+		$result = $this->addCxmlChargeLine(
+			$order,
+			$this->trans('LmdbWurthPunchoutRepLineLabel', 'REP Taxe n/w'),
+			$repAmount,
+			$repVatRate,
+			LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'),
+			'Configured cXML REP product/service not found: #',
+			'Unable to add cXML REP supplier order line'
+		);
+
+		$summary['lines_added']++;
+		$summary['rep_lines_added'] = 1;
+		$summary['rep_order_line_id'] = (int) $result;
+		$summary['rep_skipped_reason'] = '';
+	}
+
+	/**
+	 * Add a supplier order charge line.
+	 *
+	 * @param CommandeFournisseur $order                 Supplier order
+	 * @param string              $description           Line description
+	 * @param float               $amount                Amount without tax
+	 * @param float               $vatRate               VAT rate
+	 * @param int                 $productId             Optional product/service id
+	 * @param string              $missingProductMessage Missing product error prefix
+	 * @param string              $addlineErrorMessage   Addline error fallback
+	 * @return int
+	 */
+	private function addCxmlChargeLine($order, $description, $amount, $vatRate, $productId, $missingProductMessage, $addlineErrorMessage)
+	{
 		if ($productId > 0) {
 			$product = new Product($this->db);
 			if ($product->fetch($productId) <= 0) {
-				throw new RuntimeException('Configured cXML shipping product/service not found: #'.$productId);
+				throw new RuntimeException($missingProductMessage.$productId);
 			}
 		}
 
 		$result = $order->addline(
-			$this->buildShippingDescription($shipping),
-			$shippingAmount,
+			$description,
+			$amount,
 			1,
-			$shippingVatRate,
+			$vatRate,
 			0,
 			0,
 			$productId > 0 ? $productId : 0,
@@ -480,13 +561,10 @@ class LmdbWurthPunchoutImporter
 		);
 
 		if ($result <= 0) {
-			throw new RuntimeException($order->error ?: 'Unable to add cXML shipping supplier order line');
+			throw new RuntimeException($order->error ?: $addlineErrorMessage);
 		}
 
-		$summary['lines_added']++;
-		$summary['shipping_lines_added'] = 1;
-		$summary['shipping_order_line_id'] = (int) $result;
-		$summary['shipping_skipped_reason'] = '';
+		return (int) $result;
 	}
 
 	/**
@@ -524,33 +602,37 @@ class LmdbWurthPunchoutImporter
 	}
 
 	/**
-	 * Infer missing WURTH cXML shipping fees from the header tax delta.
+	 * Infer missing WURTH cXML additional fees from the header tax delta.
 	 *
 	 * Some WURTH cXML returns send Shipping/Money at 0 while the header tax
-	 * includes VAT for a fixed shipping fee. The inferred amount remains a
-	 * normal Dolibarr supplier order line; order totals are not copied from cXML.
+	 * includes VAT for ancillary fees displayed in the WURTH basket. The inferred
+	 * amounts remain normal Dolibarr supplier order lines; order totals are not
+	 * copied from cXML.
 	 *
-	 * @param array<string,mixed>       $basket          Basket metadata
-	 * @param array<int,array<string,mixed>> $lines      Normalized article lines
-	 * @param float                    $shippingVatRate Shipping VAT rate
-	 * @param array<string,mixed>      $summary         Import summary
-	 * @return float
+	 * @param array<string,mixed>            $basket          Basket metadata
+	 * @param array<int,array<string,mixed>> $lines           Normalized article lines
+	 * @param float                          $shippingVatRate Shipping VAT rate
+	 * @param float                          $repVatRate      REP VAT rate
+	 * @param array<string,mixed>            $summary         Import summary
+	 * @return array{shipping_amount:float,rep_amount:float}
 	 */
-	private function inferCxmlShippingAmountFromTaxDelta($basket, $lines, $shippingVatRate, &$summary)
+	private function inferCxmlAdditionalFeesFromTaxDelta($basket, $lines, $shippingVatRate, $repVatRate, &$summary)
 	{
+		$emptyFees = array('shipping_amount' => 0.0, 'rep_amount' => 0.0);
+
 		if (!LmdbWurthPunchoutConfig::getInt('CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1)) {
-			return 0.0;
+			return $emptyFees;
 		}
 		if ($shippingVatRate <= 0) {
-			return 0.0;
+			return $emptyFees;
 		}
 		if (!isset($basket['header']) || !is_array($basket['header']) || !isset($basket['header']['tax']) || !is_array($basket['header']['tax'])) {
-			return 0.0;
+			return $emptyFees;
 		}
 
 		$headerTax = $basket['header']['tax'];
 		if (empty($headerTax['has_value'])) {
-			return 0.0;
+			return $emptyFees;
 		}
 
 		$headerTaxAmount = (float) ($headerTax['amount'] ?? 0);
@@ -561,11 +643,35 @@ class LmdbWurthPunchoutImporter
 
 		$taxDelta = round($headerTaxAmount - $lineTaxAmount, 6);
 		$summary['shipping_tax_delta'] = $taxDelta;
+		$summary['rep_tax_delta'] = $taxDelta;
 		if ($taxDelta <= 0.01) {
-			return 0.0;
+			return $emptyFees;
 		}
 
-		return round($taxDelta * 100 / $shippingVatRate, 2);
+		$repAmount = $this->getRepAmountForTaxDelta();
+		$repTaxAmount = 0.0;
+		if ($repAmount > 0 && LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+			$repTaxAmount = $this->calculateVatAmount($repAmount, $repVatRate);
+			$summary['rep_source'] = 'fixed_tax_delta';
+			$summary['rep_amount'] = $repAmount;
+			$summary['rep_tax_amount'] = $repTaxAmount;
+		} elseif ($repAmount > 0) {
+			$summary['rep_source'] = 'fixed_tax_delta';
+			$summary['rep_amount'] = $repAmount;
+			$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
+			$summary['rep_skipped_reason'] = 'disabled';
+			$repAmount = 0.0;
+		} else {
+			$summary['rep_skipped_reason'] = 'zero_amount';
+		}
+
+		$shippingTaxDelta = round($taxDelta - $repTaxAmount, 6);
+		$shippingAmount = $shippingTaxDelta > 0.01 ? round($shippingTaxDelta * 100 / $shippingVatRate, 2) : 0.0;
+
+		return array(
+			'shipping_amount' => $shippingAmount,
+			'rep_amount' => $repAmount,
+		);
 	}
 
 	/**
@@ -581,6 +687,33 @@ class LmdbWurthPunchoutImporter
 			return LmdbWurthPunchoutParser::toFloat($configuredVat);
 		}
 
+		return $this->getCommonVatRate($lines);
+	}
+
+	/**
+	 * Resolve VAT rate for REP fees.
+	 *
+	 * @param array<int,array<string,mixed>> $lines Normalized article lines
+	 * @return float
+	 */
+	private function getRepVatRate($lines)
+	{
+		$configuredVat = trim(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE'));
+		if ($configuredVat !== '') {
+			return LmdbWurthPunchoutParser::toFloat($configuredVat);
+		}
+
+		return $this->getCommonVatRate($lines);
+	}
+
+	/**
+	 * Resolve the common line VAT rate, or the default VAT when lines differ.
+	 *
+	 * @param array<int,array<string,mixed>> $lines Normalized article lines
+	 * @return float
+	 */
+	private function getCommonVatRate($lines)
+	{
 		$commonVat = null;
 		foreach ($lines as $line) {
 			if (!isset($line['vat_rate'])) {
@@ -597,6 +730,28 @@ class LmdbWurthPunchoutImporter
 		}
 
 		return $commonVat !== null ? $commonVat : LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+	}
+
+	/**
+	 * Return configured REP amount for WURTH tax-delta fallback.
+	 *
+	 * @return float
+	 */
+	private function getRepAmountForTaxDelta()
+	{
+		return max(0.0, LmdbWurthPunchoutConfig::getFloat('CXML_REP_AMOUNT', 0.01));
+	}
+
+	/**
+	 * Calculate VAT amount rounded as a line-level tax amount.
+	 *
+	 * @param float $amount  Amount without tax
+	 * @param float $vatRate VAT rate
+	 * @return float
+	 */
+	private function calculateVatAmount($amount, $vatRate)
+	{
+		return round($amount * $vatRate / 100, 2);
 	}
 
 	/**

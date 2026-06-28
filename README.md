@@ -25,7 +25,7 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Retour panier cXML en `cXML-urlencoded` ou `cXML-base64`.
 - Conservation des métadonnées cXML du panier : frais de port, total, taxe, adresse de livraison et identifiants complémentaires de lignes.
 - Import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
-- Fallback optionnel WURTH : si `Shipping/Money` vaut zéro mais que la taxe d’en-tête contient une TVA de port, le montant HT des frais de port peut être déduit de l’écart de TVA.
+- Fallback optionnel WURTH : si `Shipping/Money` vaut zéro mais que la taxe d’en-tête contient des frais annexes, le module peut créer une ligne de port et une ligne `REP Taxe n/w` séparées.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.
@@ -65,6 +65,7 @@ Paramètres principaux :
 - Durée de conservation des payloads
 - Correspondances unités WURTH vers unités Dolibarr
 - Import des frais de port cXML, déduction optionnelle depuis l’écart de TVA WURTH, produit/service de frais de port optionnel et TVA dédiée optionnelle
+- Import REP cXML, montant forfaitaire REP, produit/service REP optionnel et TVA REP dédiée optionnelle
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
 
@@ -101,8 +102,9 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Retour cXML avec `PunchOutOrderMessage` en `cXML-urlencoded`.
 - Retour cXML avec `PunchOutOrderMessage` en `cXML-base64`.
 - Retour cXML avec frais de port à zéro et sans écart de TVA : aucune ligne de frais de port ajoutée.
-- Retour cXML avec frais de port à zéro et écart de TVA WURTH : ligne de frais de port déduite si l’option est activée.
+- Retour cXML avec frais de port à zéro et écart de TVA WURTH : lignes de frais de port et REP déduites si l’option est activée.
 - Retour cXML avec frais de port positif : ligne de frais de port ajoutée, en ligne libre ou avec le produit/service configuré.
+- Retour cXML avec REP forfaitaire désactivée ou à zéro : aucune ligne REP ajoutée.
 - Import sans token CSRF refusé.
 - Import avec token CSRF accepté.
 - Double retour ou double import refusé.
