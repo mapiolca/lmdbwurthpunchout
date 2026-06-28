@@ -169,7 +169,7 @@ if ($action === 'save_repmap') {
 	}
 
 	$vendorRef = trim(GETPOST('vendor_ref', 'restricthtml'));
-	$amountHt = str_replace(',', '.', trim(GETPOST('amount_ht', 'alphanohtml')));
+	$amountHt = str_replace(',', '.', trim(GETPOST('amount_ht', 'restricthtml')));
 	$label = GETPOST('label', 'restricthtml');
 
 	if ($vendorRef === '') {

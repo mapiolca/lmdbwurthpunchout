@@ -775,9 +775,10 @@ class LmdbWurthPunchoutImporter
 			return;
 		}
 
-		$summary['warnings'][] = sprintf(
-			$this->trans('LmdbWurthPunchoutRepRuleMissingWarning', 'cXML REP was not imported because no REP rule matches: %s'),
-			implode(', ', $refs)
+		$summary['warnings'][] = $this->transWithParams(
+			'LmdbWurthPunchoutRepRuleMissingWarning',
+			'cXML REP was not imported because no REP rule matches: %s',
+			array(implode(', ', $refs))
 		);
 	}
 
@@ -827,9 +828,11 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function findRepAmountPerUnit($vendorRef, $entity)
 	{
+		$entities = array_values(array_unique(array((int) $entity, 1)));
+
 		$sql = 'SELECT entity, vendor_ref, amount_ht';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
-		$sql .= ' WHERE entity IN ('.((int) $entity).', 1)';
+		$sql .= ' WHERE entity IN ('.implode(', ', $entities).')';
 		$sql .= ' ORDER BY entity DESC, LENGTH(vendor_ref) DESC';
 
 		$resql = $this->db->query($sql);
@@ -912,5 +915,28 @@ class LmdbWurthPunchoutImporter
 		}
 
 		return $fallback;
+	}
+
+	/**
+	 * Translate a label with Dolibarr placeholders and a stable fallback.
+	 *
+	 * @param string            $key      Translation key
+	 * @param string            $fallback Fallback value
+	 * @param array<int,string> $params   Translation parameters
+	 * @return string
+	 */
+	private function transWithParams($key, $fallback, $params)
+	{
+		global $langs;
+
+		if (is_object($langs)) {
+			$args = array_merge(array($key), $params);
+			$value = call_user_func_array(array($langs, 'transnoentitiesnoconv'), $args);
+			if ($value !== $key) {
+				return $value;
+			}
+		}
+
+		return vsprintf($fallback, $params);
 	}
 }
