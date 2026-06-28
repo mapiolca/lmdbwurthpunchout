@@ -375,17 +375,19 @@ function getProductServiceOptions($db)
 
 	$options = array();
 	$entitySql = function_exists('getEntity') ? getEntity('product') : (string) ((int) $conf->entity);
-	$sql = 'SELECT rowid, ref, label, type FROM '.MAIN_DB_PREFIX.'product';
+	$sql = 'SELECT rowid, ref, label, fk_product_type FROM '.MAIN_DB_PREFIX.'product';
 	$sql .= ' WHERE entity IN ('.$entitySql.')';
-	$sql .= ' AND status_buy = 1';
+	$sql .= ' AND tobuy = 1';
 	$sql .= ' ORDER BY ref ASC';
 
 	$resql = $db->query($sql);
 	if ($resql) {
 		while ($obj = $db->fetch_object($resql)) {
-			$typeLabel = ((int) $obj->type === 1) ? $langs->trans('Service') : $langs->trans('Product');
+			$typeLabel = ((int) $obj->fk_product_type === 1) ? $langs->trans('Service') : $langs->trans('Product');
 			$options[(int) $obj->rowid] = $obj->ref.' - '.$obj->label.' ('.$typeLabel.')';
 		}
+	} elseif (function_exists('dol_syslog')) {
+		dol_syslog('LmdbWurthPunchout getProductServiceOptions SQL error: '.$db->lasterror(), LOG_ERR);
 	}
 
 	return $options;
