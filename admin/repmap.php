@@ -20,6 +20,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once __DIR__.'/../lib/lmdbwurthpunchout.lib.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutconfig.class.php';
 require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutsession.class.php';
 
 $langs->loadLangs(array('admin', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
@@ -29,7 +30,9 @@ if (!$user->admin && !LmdbWurthPunchoutSecurity::canConfigure($user)) {
 
 $action = GETPOST('action', 'aZ09');
 $rowid = GETPOSTINT('rowid');
-$repmapUrl = dol_buildpath('/lmdbwurthpunchout/admin/repmap.php', 1);
+$retrySessionId = GETPOSTINT('retry_session');
+$repmapBaseUrl = dol_buildpath('/lmdbwurthpunchout/admin/repmap.php', 1);
+$repmapUrl = $repmapBaseUrl.($retrySessionId > 0 ? '?retry_session='.((int) $retrySessionId) : '');
 
 if ($action === 'save_repmap') {
 	if (!LmdbWurthPunchoutSecurity::checkToken()) {
@@ -92,7 +95,8 @@ llxHeader('', $langs->trans('LmdbWurthPunchoutRepMapping'));
 lmdbwurthpunchoutPrintAdminHeader('repmap');
 
 print load_fiche_titre($langs->trans('LmdbWurthPunchoutRepMapping'), '', '');
-renderRepMapTable($db, $repmapUrl);
+renderRetryImportBlock($db, $retrySessionId);
+renderRepMapTable($db, $repmapBaseUrl, $retrySessionId);
 
 print dol_get_fiche_end();
 llxFooter();
@@ -100,11 +104,12 @@ llxFooter();
 /**
  * Render REP amount mapping table.
  *
- * @param DoliDB $db      Database handler
- * @param string $pageUrl Current page URL
+ * @param DoliDB $db             Database handler
+ * @param string $pageUrl        Current page URL
+ * @param int    $retrySessionId Retry session id
  * @return void
  */
-function renderRepMapTable($db, $pageUrl)
+function renderRepMapTable($db, $pageUrl, $retrySessionId)
 {
 	global $conf, $langs;
 
@@ -126,11 +131,17 @@ function renderRepMapTable($db, $pageUrl)
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="save_repmap">';
 		print '<input type="hidden" name="rowid" value="'.((int) $obj->rowid).'">';
+		if ($retrySessionId > 0) {
+			print '<input type="hidden" name="retry_session" value="'.((int) $retrySessionId).'">';
+		}
 		print '</form>';
 	}
 	print '<form id="repmap-new" method="POST" action="'.$pageUrl.'">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
 	print '<input type="hidden" name="action" value="save_repmap">';
+	if ($retrySessionId > 0) {
+		print '<input type="hidden" name="retry_session" value="'.((int) $retrySessionId).'">';
+	}
 	print '</form>';
 
 	print '<table class="noborder centpercent">';
@@ -147,7 +158,7 @@ function renderRepMapTable($db, $pageUrl)
 			print '<td><input form="'.$formId.'" class="flat width75" name="amount_ht" value="'.dol_escape_htmltag(formatRepAmount((float) $obj->amount_ht)).'"> '.dol_escape_htmltag($currency).'</td>';
 			print '<td><input form="'.$formId.'" class="flat minwidth300" name="label" value="'.dol_escape_htmltag($obj->label).'"></td>';
 			print '<td class="right"><input form="'.$formId.'" class="button button-save small" type="submit" value="'.$langs->trans('Save').'"> ';
-			print '<a class="button button-delete small" href="'.$pageUrl.'?action=delete_repmap&rowid='.((int) $obj->rowid).'&token='.newToken().'">'.$langs->trans('Delete').'</a></td>';
+			print '<a class="button button-delete small" href="'.$pageUrl.'?action=delete_repmap&rowid='.((int) $obj->rowid).'&token='.newToken().($retrySessionId > 0 ? '&retry_session='.((int) $retrySessionId) : '').'">'.$langs->trans('Delete').'</a></td>';
 			print '</tr>';
 		}
 	} elseif (!$resql) {
@@ -166,6 +177,42 @@ function renderRepMapTable($db, $pageUrl)
 	print '</table>';
 
 	print '<div class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutRepMappingHelp').'</div>';
+}
+
+/**
+ * Render retry import action for a blocked stored basket.
+ *
+ * @param DoliDB $db             Database handler
+ * @param int    $retrySessionId Retry session id
+ * @return void
+ */
+function renderRetryImportBlock($db, $retrySessionId)
+{
+	global $conf, $langs, $user;
+
+	if ($retrySessionId <= 0) {
+		return;
+	}
+
+	$session = new LmdbWurthPunchoutSession($db);
+	if ($session->fetch($retrySessionId) <= 0) {
+		return;
+	}
+	if ((int) $session->entity !== (int) $conf->entity || $session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
+		return;
+	}
+	if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
+		return;
+	}
+	if ((int) $session->fk_user !== (int) $user->id && empty($user->admin)) {
+		return;
+	}
+
+	$importUrl = dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.((int) $session->id);
+	print '<div class="info">';
+	print '<span>'.$langs->trans('LmdbWurthPunchoutRetryStoredImportHelp').'</span> ';
+	print '<a class="button button-save" href="'.$importUrl.'">'.$langs->trans('LmdbWurthPunchoutRetryStoredImport').'</a>';
+	print '</div><br>';
 }
 
 /**

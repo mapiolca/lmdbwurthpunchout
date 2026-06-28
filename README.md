@@ -106,6 +106,7 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Retour cXML avec `PunchOutOrderMessage` en `cXML-base64`.
 - Retour cXML avec frais de port à zéro et sans écart de TVA : aucune ligne de frais de port ajoutée.
 - Retour cXML avec frais de port à zéro et écart de TVA WURTH : l’import est bloqué si une référence REP n’a pas de règle active ; les règles candidates sont créées automatiquement.
+- Après complétion du barème REP, relance de l’import depuis le panier WURTH déjà stocké, sans reconstruire un panier fournisseur.
 - Retour cXML avec frais de port positif : ligne de frais de port ajoutée, en ligne libre ou avec le produit/service configuré.
 - Retour cXML avec REP paramétrée par référence WURTH : montant REP multiplié par la quantité de la ligne.
 - Retour cXML avec règle REP active à 0 : import accepté sans ligne REP pour cette référence.
