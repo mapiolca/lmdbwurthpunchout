@@ -79,6 +79,7 @@ class modLmdbWurthPunchout extends DolibarrModules
 			12 => array('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', 'chaine', '1', 'Import cXML shipping fees', 0, 'current', 1),
 			13 => array('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', 'chaine', '0', 'Optional product/service for cXML shipping fees', 0, 'current', 1),
 			14 => array('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE', 'chaine', '', 'Optional VAT rate for cXML shipping fees', 0, 'current', 1),
+			15 => array('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', 'chaine', '1', 'Infer missing cXML shipping fees from header tax delta', 0, 'current', 1),
 		);
 
 		$this->tabs = array();

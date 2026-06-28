@@ -76,6 +76,8 @@ class LmdbWurthPunchoutImporter
 			'shipping_detected' => false,
 			'shipping_amount' => 0.0,
 			'shipping_currency' => '',
+			'shipping_inferred_from_tax_delta' => false,
+			'shipping_tax_delta' => 0.0,
 			'shipping_skipped_reason' => '',
 			'products_created' => 0,
 			'supplier_prices_updated' => 0,
@@ -419,14 +421,22 @@ class LmdbWurthPunchoutImporter
 		$shippingAmount = (float) ($shipping['amount'] ?? 0);
 		$expectedCurrency = LmdbWurthPunchoutConfig::getExpectedCurrency();
 		$shippingCurrency = strtoupper((string) ($shipping['currency'] ?? $expectedCurrency));
+		$shippingVatRate = $this->getShippingVatRate($lines);
 
 		$summary['shipping_detected'] = true;
 		$summary['shipping_amount'] = $shippingAmount;
 		$summary['shipping_currency'] = $shippingCurrency;
 
 		if ($shippingAmount <= 0) {
-			$summary['shipping_skipped_reason'] = 'zero_amount';
-			return;
+			$inferredShippingAmount = $this->inferCxmlShippingAmountFromTaxDelta($basket, $lines, $shippingVatRate, $summary);
+			if ($inferredShippingAmount <= 0) {
+				$summary['shipping_skipped_reason'] = 'zero_amount';
+				return;
+			}
+
+			$shippingAmount = $inferredShippingAmount;
+			$summary['shipping_amount'] = $shippingAmount;
+			$summary['shipping_inferred_from_tax_delta'] = true;
 		}
 
 		if ($shippingCurrency !== $expectedCurrency) {
@@ -451,7 +461,7 @@ class LmdbWurthPunchoutImporter
 			$this->buildShippingDescription($shipping),
 			$shippingAmount,
 			1,
-			$this->getShippingVatRate($lines),
+			$shippingVatRate,
 			0,
 			0,
 			$productId > 0 ? $productId : 0,
@@ -511,6 +521,51 @@ class LmdbWurthPunchoutImporter
 		}
 
 		return $label;
+	}
+
+	/**
+	 * Infer missing WURTH cXML shipping fees from the header tax delta.
+	 *
+	 * Some WURTH cXML returns send Shipping/Money at 0 while the header tax
+	 * includes VAT for a fixed shipping fee. The inferred amount remains a
+	 * normal Dolibarr supplier order line; order totals are not copied from cXML.
+	 *
+	 * @param array<string,mixed>       $basket          Basket metadata
+	 * @param array<int,array<string,mixed>> $lines      Normalized article lines
+	 * @param float                    $shippingVatRate Shipping VAT rate
+	 * @param array<string,mixed>      $summary         Import summary
+	 * @return float
+	 */
+	private function inferCxmlShippingAmountFromTaxDelta($basket, $lines, $shippingVatRate, &$summary)
+	{
+		if (!LmdbWurthPunchoutConfig::getInt('CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1)) {
+			return 0.0;
+		}
+		if ($shippingVatRate <= 0) {
+			return 0.0;
+		}
+		if (!isset($basket['header']) || !is_array($basket['header']) || !isset($basket['header']['tax']) || !is_array($basket['header']['tax'])) {
+			return 0.0;
+		}
+
+		$headerTax = $basket['header']['tax'];
+		if (empty($headerTax['has_value'])) {
+			return 0.0;
+		}
+
+		$headerTaxAmount = (float) ($headerTax['amount'] ?? 0);
+		$lineTaxAmount = 0.0;
+		foreach ($lines as $line) {
+			$lineTaxAmount += (float) ($line['tax_amount'] ?? 0);
+		}
+
+		$taxDelta = round($headerTaxAmount - $lineTaxAmount, 6);
+		$summary['shipping_tax_delta'] = $taxDelta;
+		if ($taxDelta <= 0.01) {
+			return 0.0;
+		}
+
+		return round($taxDelta * 100 / $shippingVatRate, 2);
 	}
 
 	/**
