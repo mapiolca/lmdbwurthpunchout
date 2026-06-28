@@ -25,6 +25,13 @@ if (!function_exists('getDolGlobalString')) {
 			'LMDBWURTHPUNCHOUT_DEFAULT_VAT' => '20',
 			'LMDBWURTHPUNCHOUT_CURRENCY' => 'EUR',
 			'LMDBWURTHPUNCHOUT_PRICEUNIT_MODE' => 'divide',
+			'LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN' => 'NetworkID',
+			'LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY' => 'buyer',
+			'LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN' => 'DUNS',
+			'LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY' => 'supplier',
+			'LMDBWURTHPUNCHOUT_CXML_SHARED_SECRET' => 'secret',
+			'LMDBWURTHPUNCHOUT_CXML_URL' => 'https://example.invalid/cxml',
+			'LMDBWURTHPUNCHOUT_CXML_MODE' => 'test',
 		);
 		return $defaults[$key] ?? $default;
 	}
@@ -37,6 +44,8 @@ if (!function_exists('getDolGlobalInt')) {
 }
 
 require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlclient.class.php';
+require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlpayload.class.php';
 
 $parser = new LmdbWurthPunchoutParser();
 
@@ -74,10 +83,87 @@ if (count($ociPhpPostShapeLines) !== 1 || $ociPhpPostShapeLines[0]['vendor_ref']
 	throw new RuntimeException('OCI parser PHP POST shape test failed');
 }
 
-$cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrderMessageHeader><Total><Money currency="EUR">0</Money></Total></PunchOutOrderMessageHeader><ItemIn quantity="2"><ItemID><SupplierPartID>0890108715063</SupplierPartID></ItemID><ItemDetail><UnitPrice><Money currency="EUR">3.50</Money></UnitPrice><Description xml:lang="fr"><ShortName>Nettoyant freins</ShortName>BIDON NETTOYANT FREINS 5 L</Description><UnitOfMeasure>EA</UnitOfMeasure><Classification domain="UNSPSC">47132101</Classification></ItemDetail><Tax><TaxDetail category="FullTax" percentageRate="20.000"></TaxDetail></Tax></ItemIn></PunchOutOrderMessage></Message></cXML>';
+$cxml = '<?xml version="1.0"?><cXML><Message><PunchOutOrderMessage><PunchOutOrderMessageHeader><Total><Money currency="EUR">7.00</Money></Total><ShipTo><Address addressID="ADDR1"><Name xml:lang="fr">Adresse principale</Name><PostalAddress><DeliverTo>Magasin</DeliverTo><Street>4 RUE ALFRED KASTLER</Street><City>MIOS</City><State></State><PostalCode>33380</PostalCode><Country isoCountryCode="FR">FR</Country></PostalAddress></Address></ShipTo><Shipping><Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description></Shipping><Tax><Money currency="EUR">1.40</Money><Description xml:lang="fr">TVA</Description></Tax></PunchOutOrderMessageHeader><ItemIn quantity="2" lineNumber="10"><ItemID><SupplierPartID>0890108715063</SupplierPartID><SupplierPartAuxiliaryID>AUX-1</SupplierPartAuxiliaryID></ItemID><ItemDetail><UnitPrice><Money currency="EUR">3.50</Money></UnitPrice><Description xml:lang="fr"><ShortName>Nettoyant freins</ShortName>BIDON NETTOYANT FREINS 5 L</Description><UnitOfMeasure>EA</UnitOfMeasure><Classification domain="UNSPSC">47132101</Classification></ItemDetail><Tax><Money currency="EUR">1.40</Money><TaxDetail category="FullTax" percentageRate="20.000"></TaxDetail></Tax></ItemIn></PunchOutOrderMessage></Message></cXML>';
 $cxmlLines = $parser->parseCxml($cxml);
 if (count($cxmlLines) !== 1 || $cxmlLines[0]['vendor_ref'] !== '0890108715063' || abs($cxmlLines[0]['unit_price_ht'] - 3.5) > 0.000001) {
 	throw new RuntimeException('cXML parser test failed');
+}
+if ($cxmlLines[0]['source_line_number'] !== '10' || $cxmlLines[0]['supplier_part_auxiliary_id'] !== 'AUX-1') {
+	throw new RuntimeException('cXML line metadata parser test failed');
+}
+
+$cxmlBasket = $parser->parseCxmlBasket($cxml);
+if (count($cxmlBasket['lines']) !== 1 || abs($cxmlBasket['header']['shipping']['amount']) > 0.000001 || $cxmlBasket['header']['shipping']['currency'] !== 'EUR') {
+	throw new RuntimeException('cXML basket header shipping zero test failed');
+}
+if ($cxmlBasket['header']['ship_to']['zip'] !== '33380' || $cxmlBasket['header']['ship_to']['town'] !== 'MIOS' || $cxmlBasket['header']['ship_to']['country_code'] !== 'FR') {
+	throw new RuntimeException('cXML ShipTo parser test failed');
+}
+
+$cxmlPositiveShipping = str_replace('<Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description>', '<Money currency="EUR">12.34</Money><Description xml:lang="fr">Transport</Description>', $cxml);
+$positiveShippingBasket = $parser->parseCxmlBasket($cxmlPositiveShipping);
+if (abs($positiveShippingBasket['header']['shipping']['amount'] - 12.34) > 0.000001 || $positiveShippingBasket['header']['shipping']['description'] !== 'Transport') {
+	throw new RuntimeException('cXML positive shipping parser test failed');
+}
+
+$cxmlNoShipping = str_replace('<Shipping><Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description></Shipping>', '', $cxml);
+$noShippingBasket = $parser->parseCxmlBasket($cxmlNoShipping);
+if (!empty($noShippingBasket['header']['shipping']['has_value']) || abs($noShippingBasket['header']['shipping']['amount']) > 0.000001) {
+	throw new RuntimeException('cXML no shipping parser test failed');
+}
+
+$cxmlForeignShippingCurrency = str_replace('<Money currency="EUR">0.0000</Money><Description xml:lang="fr">Franco</Description>', '<Money currency="GBP">6.00</Money><Description xml:lang="fr">Transport</Description>', $cxml);
+$foreignShippingCurrencyBasket = $parser->parseCxmlBasket($cxmlForeignShippingCurrency);
+if ($foreignShippingCurrencyBasket['header']['shipping']['currency'] !== 'GBP' || abs($foreignShippingCurrencyBasket['header']['shipping']['amount'] - 6.0) > 0.000001) {
+	throw new RuntimeException('cXML shipping currency parser test failed');
+}
+
+$client = new LmdbWurthPunchoutCxmlClient();
+$setupXml = $client->buildSetupRequest('https://dolibarr.example/custom/lmdbwurthpunchout/public/return_cxml.php?entity=1&token=test', 'buyer-cookie');
+$setupDoc = new DOMDocument();
+if (!$setupDoc->loadXML($setupXml)) {
+	throw new RuntimeException('cXML setup request is not valid XML');
+}
+$setupXPath = new DOMXPath($setupDoc);
+if ($setupDoc->doctype === null || $setupDoc->doctype->systemId !== LmdbWurthPunchoutCxmlClient::CXML_DTD) {
+	throw new RuntimeException('cXML setup request missing expected DTD');
+}
+if ($setupDoc->documentElement === null || $setupDoc->documentElement->getAttribute('version') !== LmdbWurthPunchoutCxmlClient::CXML_VERSION) {
+	throw new RuntimeException('cXML setup request missing expected version');
+}
+if ($setupDoc->documentElement === null || $setupDoc->documentElement->getAttribute('xml:lang') !== 'en-US') {
+	throw new RuntimeException('cXML setup request missing expected xml:lang');
+}
+if ($setupXPath->query('/cXML/Header/Sender/Credential/SharedSecret')->length !== 1) {
+	throw new RuntimeException('cXML setup request missing Sender Credential SharedSecret');
+}
+if ($setupXPath->query('/cXML/Header/Sender/SharedSecret')->length !== 0) {
+	throw new RuntimeException('cXML setup request has SharedSecret at Sender level');
+}
+
+$rejectedSetupXml = '<?xml version="1.0"?><cXML><Response><Status code="401" text="Unauthorized"/></Response></cXML>';
+try {
+	$client->parseStartPageUrl($rejectedSetupXml, 200, 'text/xml', 'https://example.invalid/cxml');
+	throw new RuntimeException('cXML rejected setup response test failed');
+} catch (RuntimeException $exception) {
+	if (strpos($exception->getMessage(), 'cXML setup rejected: 401 Unauthorized') === false) {
+		throw $exception;
+	}
+}
+
+$urlencodedPayload = LmdbWurthPunchoutCxmlPayload::extract(array('cXML-urlencoded' => $cxml));
+if ($urlencodedPayload !== $cxml) {
+	throw new RuntimeException('cXML-urlencoded return extraction failed');
+}
+
+$base64Payload = LmdbWurthPunchoutCxmlPayload::extract(array('CXML-BASE64' => base64_encode($cxml)));
+if ($base64Payload !== $cxml) {
+	throw new RuntimeException('cXML-base64 return extraction failed');
+}
+
+$base64FirstPayload = LmdbWurthPunchoutCxmlPayload::extract(array('cXML-urlencoded' => '<invalid/>', 'cXML-base64' => base64_encode($cxml)));
+if ($base64FirstPayload !== $cxml) {
+	throw new RuntimeException('cXML-base64 return extraction priority failed');
 }
 
 echo "Parser examples OK\n";

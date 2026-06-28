@@ -14,6 +14,7 @@ CREATE TABLE llx_lmdbwurthpunchout_session (
 	date_import datetime NULL,
 	raw_payload mediumtext NULL,
 	normalized_payload mediumtext NULL,
+	basket_payload mediumtext NULL,
 	import_log mediumtext NULL,
 	error_message text NULL,
 	import_count integer DEFAULT 0 NOT NULL,

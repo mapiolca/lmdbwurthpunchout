@@ -8,6 +8,9 @@ require_once __DIR__.'/lmdbwurthpunchoutconfig.class.php';
  */
 class LmdbWurthPunchoutCxmlClient
 {
+	const CXML_VERSION = '1.2.008';
+	const CXML_DTD = 'http://xml.cxml.org/schemas/cXML/1.2.008/cXML.dtd';
+
 	/**
 	 * Build cXML setup request.
 	 *
@@ -22,18 +25,29 @@ class LmdbWurthPunchoutCxmlClient
 
 		$doc = new DOMDocument('1.0', 'UTF-8');
 		$doc->formatOutput = true;
+		$doc->appendChild($doc->implementation->createDocumentType('cXML', '', self::CXML_DTD));
 
 		$cxml = $doc->createElement('cXML');
+		$cxml->setAttribute('version', self::CXML_VERSION);
 		$cxml->setAttribute('payloadID', $payloadId);
 		$cxml->setAttribute('timestamp', $timestamp);
+		$cxml->setAttribute('xml:lang', LmdbWurthPunchoutConfig::getString('CXML_LANG', 'en-US'));
 		$doc->appendChild($cxml);
 
 		$header = $cxml->appendChild($doc->createElement('Header'));
 		$this->appendCredential($doc, $header, 'From', LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
 		$this->appendCredential($doc, $header, 'To', LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY'));
 		$sender = $header->appendChild($doc->createElement('Sender'));
-		$this->appendCredentialContent($doc, $sender, LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
-		$secret = $sender->appendChild($doc->createElement('SharedSecret'));
+		$senderDomain = LmdbWurthPunchoutConfig::getString('CXML_SENDER_DOMAIN');
+		if ($senderDomain === '') {
+			$senderDomain = LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN');
+		}
+		$senderIdentity = LmdbWurthPunchoutConfig::getString('CXML_SENDER_IDENTITY');
+		if ($senderIdentity === '') {
+			$senderIdentity = LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY');
+		}
+		$senderCredential = $this->appendCredentialContent($doc, $sender, $senderDomain, $senderIdentity);
+		$secret = $senderCredential->appendChild($doc->createElement('SharedSecret'));
 		$secret->appendChild($doc->createTextNode(LmdbWurthPunchoutConfig::getSecret('CXML_SHARED_SECRET')));
 		$sender->appendChild($doc->createElement('UserAgent', 'Dolibarr WURTH Punchout'));
 
@@ -70,28 +84,37 @@ class LmdbWurthPunchoutCxmlClient
 		$ch = curl_init(LmdbWurthPunchoutConfig::getString('CXML_URL'));
 		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8'));
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8', 'Accept: text/xml, application/xml'));
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 		$response = curl_exec($ch);
 		$error = curl_error($ch);
 		$httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		$contentType = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+		$effectiveUrl = (string) curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+		$redirectUrl = defined('CURLINFO_REDIRECT_URL') ? (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL) : '';
 		curl_close($ch);
 
-		if ($response === false || $response === '' || $httpCode >= 400) {
+		if ($response === false || $response === '' || $httpCode < 200 || $httpCode >= 300) {
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $error, is_string($response) ? $response : '', $xml);
 			throw new RuntimeException('cXML Punchout setup failed'.($error !== '' ? ': '.$error : ''));
 		}
 
-		return $this->parseStartPageUrl($response);
+		return $this->parseStartPageUrl($response, $httpCode, $contentType, $effectiveUrl, $redirectUrl, $xml);
 	}
 
 	/**
 	 * Parse cXML setup response.
 	 *
-	 * @param string $response cXML response
+	 * @param string $response     cXML response
+	 * @param int    $httpCode     HTTP status code
+	 * @param string $contentType  Response content type
+	 * @param string $effectiveUrl Effective URL
+	 * @param string $redirectUrl  Redirect URL
+	 * @param string $request      Raw request
 	 * @return string
 	 */
-	public function parseStartPageUrl($response)
+	public function parseStartPageUrl($response, $httpCode = 200, $contentType = '', $effectiveUrl = '', $redirectUrl = '', $request = '')
 	{
 		$doc = new DOMDocument();
 		$previous = libxml_use_internal_errors(true);
@@ -99,17 +122,27 @@ class LmdbWurthPunchoutCxmlClient
 		libxml_clear_errors();
 		libxml_use_internal_errors($previous);
 		if (!$loaded) {
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
 			throw new RuntimeException('Invalid cXML setup response');
 		}
 
 		$xpath = new DOMXPath($doc);
 		$status = $xpath->query('//*[local-name()="Status"]')->item(0);
-		if ($status instanceof DOMElement && $status->hasAttribute('code') && (int) $status->getAttribute('code') >= 400) {
-			throw new RuntimeException('cXML setup rejected: '.$status->textContent);
+		if ($status instanceof DOMElement && $status->hasAttribute('code')) {
+			$statusCode = (int) $status->getAttribute('code');
+			if ($statusCode >= 400) {
+				$statusText = $status->hasAttribute('text') ? trim($status->getAttribute('text')) : '';
+				if ($statusText === '') {
+					$statusText = trim($status->textContent);
+				}
+				$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
+				throw new RuntimeException('cXML setup rejected: '.$statusCode.($statusText !== '' ? ' '.$statusText : ''));
+			}
 		}
 
 		$url = $xpath->query('//*[local-name()="StartPage"]/*[local-name()="URL"]')->item(0);
 		if (!$url || trim($url->textContent) === '') {
+			$this->logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, '', $response, $request);
 			throw new RuntimeException('cXML setup response has no StartPage URL');
 		}
 
@@ -139,13 +172,129 @@ class LmdbWurthPunchoutCxmlClient
 	 * @param DOMNode     $parent   Parent
 	 * @param string      $domain   Domain
 	 * @param string      $identity Identity
-	 * @return void
+	 * @return DOMElement
 	 */
 	private function appendCredentialContent($doc, $parent, $domain, $identity)
 	{
-		$credential = $parent->appendChild($doc->createElement('Credential'));
+		$credential = $doc->createElement('Credential');
+		$parent->appendChild($credential);
 		$credential->setAttribute('domain', $domain);
 		$identityNode = $credential->appendChild($doc->createElement('Identity'));
 		$identityNode->appendChild($doc->createTextNode($identity));
+
+		return $credential;
+	}
+
+	/**
+	 * Log a setup failure without exposing credentials.
+	 *
+	 * @param int    $httpCode     HTTP status code
+	 * @param string $contentType  Response content type
+	 * @param string $effectiveUrl Effective URL
+	 * @param string $redirectUrl  Redirect URL
+	 * @param string $curlError    cURL error
+	 * @param string $response     Raw response
+	 * @param string $request      Raw request
+	 * @return void
+	 */
+	private function logSetupFailure($httpCode, $contentType, $effectiveUrl, $redirectUrl, $curlError, $response, $request = '')
+	{
+		$status = $this->extractStatusSummary($response);
+		$redactedResponse = $this->redactCxmlSecrets($response);
+		$excerpt = function_exists('dol_substr') ? dol_substr($redactedResponse, 0, 1000) : substr($redactedResponse, 0, 1000);
+		$excerpt = trim((string) preg_replace('/\s+/', ' ', $excerpt));
+		$redactedRequest = $this->redactCxmlSecrets($request);
+		$requestExcerpt = function_exists('dol_substr') ? dol_substr($redactedRequest, 0, 1500) : substr($redactedRequest, 0, 1500);
+		$requestExcerpt = trim((string) preg_replace('/\s+/', ' ', $requestExcerpt));
+		$message = 'LmdbWurthPunchout cXML setup failed';
+		$message .= ' http_status='.(int) $httpCode;
+		$message .= ' content_type='.$contentType;
+		$message .= ' effective_url='.$effectiveUrl;
+		if ($redirectUrl !== '') {
+			$message .= ' redirect_url='.$redirectUrl;
+		}
+		if ($status !== '') {
+			$message .= ' cxml_status='.$status;
+		}
+		if ($curlError !== '') {
+			$message .= ' curl_error='.$curlError;
+		}
+		if ($excerpt !== '') {
+			$message .= ' response_excerpt='.$excerpt;
+		}
+		if ($requestExcerpt !== '') {
+			$message .= ' request_excerpt='.$requestExcerpt;
+		}
+
+		if (function_exists('dol_syslog')) {
+			dol_syslog($message, defined('LOG_ERR') ? LOG_ERR : 3);
+		}
+	}
+
+	/**
+	 * Extract cXML status details from a response.
+	 *
+	 * @param string $response Raw response
+	 * @return string
+	 */
+	private function extractStatusSummary($response)
+	{
+		if (trim($response) === '') {
+			return '';
+		}
+
+		$doc = new DOMDocument();
+		$previous = libxml_use_internal_errors(true);
+		$loaded = $doc->loadXML($response, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+		libxml_clear_errors();
+		libxml_use_internal_errors($previous);
+		if (!$loaded) {
+			return '';
+		}
+
+		$xpath = new DOMXPath($doc);
+		$status = $xpath->query('//*[local-name()="Status"]')->item(0);
+		if (!$status instanceof DOMElement) {
+			return '';
+		}
+
+		$parts = array();
+		if ($status->hasAttribute('code')) {
+			$parts[] = 'code='.$status->getAttribute('code');
+		}
+		if ($status->hasAttribute('text')) {
+			$parts[] = 'text='.$status->getAttribute('text');
+		}
+		$content = trim($status->textContent);
+		if ($content !== '') {
+			$parts[] = 'message='.$content;
+		}
+
+		return implode(' ', $parts);
+	}
+
+	/**
+	 * Redact cXML secrets from logs.
+	 *
+	 * @param string $content Raw content
+	 * @return string
+	 */
+	private function redactCxmlSecrets($content)
+	{
+		$content = (string) preg_replace(
+			array(
+				'~<SharedSecret\b[^>]*>.*?</SharedSecret>~is',
+				'~<BuyerCookie\b[^>]*>.*?</BuyerCookie>~is',
+				'~([?&](?:amp;)?token=)[^&<\s]+~i',
+			),
+			array(
+				'<SharedSecret>[REDACTED]</SharedSecret>',
+				'<BuyerCookie>[REDACTED]</BuyerCookie>',
+				'${1}[REDACTED]',
+			),
+			$content
+		);
+
+		return $content;
 	}
 }

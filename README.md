@@ -21,7 +21,13 @@ Le dépôt contient directement la racine du module. Pour l'installer, placer ce
 - Bouton `Punchout WURTH` ajouté par hook sur la fiche commande fournisseur.
 - Affichage du bouton uniquement si la commande est brouillon, liée au tiers WURTH configuré, dans l'entité active propriétaire, et si l'utilisateur a les droits nécessaires.
 - Flux OCI avec `ORGANIZATION`, `NAME`, `PASSWORD` et `HOOK_URL`.
-- Flux cXML avec requête `PunchOutSetupRequest` et parsing du retour `PunchOutOrderMessage`.
+- Flux cXML avec requête `PunchOutSetupRequest` conforme, `SharedSecret` dans `Sender/Credential`, et parsing du retour `PunchOutOrderMessage`.
+- Retour panier cXML en `cXML-urlencoded` ou `cXML-base64`.
+- Conservation des métadonnées cXML du panier : frais de port, total, taxe, adresse de livraison et identifiants complémentaires de lignes.
+- Import optionnel des frais de port cXML positifs comme ligne de commande fournisseur.
+- Fallback optionnel WURTH : si `Shipping/Money` vaut zéro mais que la taxe d’en-tête contient des frais annexes, le module peut créer une ligne de port et une ligne `REP Taxe n/w` séparées.
+- Barème REP cXML par référence fournisseur WURTH, avec règles candidates créées automatiquement et blocage de l’import tant qu’un montant inconnu n’est pas confirmé. Le matching accepte la référence visible WURTH ou l’identifiant cXML complet.
+- Page autonome de complétion du barème REP depuis une session cXML bloquée, adaptée à la modale Punchout.
 - Session Punchout temporaire avec token aléatoire à usage unique.
 - Retour panier public qui stocke le payload sans modifier la commande.
 - Import authentifié avec token CSRF Dolibarr.
@@ -41,6 +47,7 @@ admin/setup.php@lmdbwurthpunchout
 Onglets internes disponibles :
 
 - Réglages
+- Barème REP WURTH
 - Compatibilité
 - Sessions Punchout
 - À propos
@@ -60,6 +67,9 @@ Paramètres principaux :
 - Durée de validité du token
 - Durée de conservation des payloads
 - Correspondances unités WURTH vers unités Dolibarr
+- Import des frais de port cXML, déduction optionnelle depuis l’écart de TVA WURTH, produit/service de frais de port optionnel et TVA dédiée optionnelle
+- Import REP cXML, produit/service REP optionnel et TVA REP dédiée optionnelle
+- Barème REP par référence fournisseur WURTH dans un onglet de réglages dédié
 
 Les réglages sont enregistrés par entité. Les secrets sont stockés via `dolEncrypt()` lorsque cette fonction est disponible.
 
@@ -93,7 +103,14 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Configuration cXML complète et incomplète.
 - Bouton visible/invisible selon tiers, statut, droits et entité.
 - Retour OCI avec champs `NEW_ITEM-*`.
-- Retour cXML avec `PunchOutOrderMessage`.
+- Retour cXML avec `PunchOutOrderMessage` en `cXML-urlencoded`.
+- Retour cXML avec `PunchOutOrderMessage` en `cXML-base64`.
+- Retour cXML avec frais de port à zéro et sans écart de TVA : aucune ligne de frais de port ajoutée.
+- Retour cXML avec frais de port à zéro et écart de TVA WURTH : l’import est bloqué si une référence REP n’a pas de règle active ; les règles candidates sont créées automatiquement.
+- Après complétion du barème REP, relance de l’import depuis le panier WURTH déjà stocké, sans reconstruire un panier fournisseur.
+- Retour cXML avec frais de port positif : ligne de frais de port ajoutée, en ligne libre ou avec le produit/service configuré.
+- Retour cXML avec REP paramétrée par référence WURTH : montant REP multiplié par la quantité de la ligne.
+- Retour cXML avec règle REP active à 0 : import accepté sans ligne REP pour cette référence.
 - Import sans token CSRF refusé.
 - Import avec token CSRF accepté.
 - Double retour ou double import refusé.

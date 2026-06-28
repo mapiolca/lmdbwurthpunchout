@@ -45,6 +45,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 	public $date_import;
 	public $raw_payload;
 	public $normalized_payload;
+	public $basket_payload;
 	public $import_log;
 	public $error_message;
 	public $import_count;
@@ -119,7 +120,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 	 */
 	public function fetch($id)
 	{
-		$sql = 'SELECT rowid, entity, token_hash, fk_commandefourn, fk_soc, fk_user, protocol, status, datec, tms, date_validity, date_return, date_import, raw_payload, normalized_payload, import_log, error_message, import_count, ip_address';
+		$sql = 'SELECT rowid, entity, token_hash, fk_commandefourn, fk_soc, fk_user, protocol, status, datec, tms, date_validity, date_return, date_import, raw_payload, normalized_payload, basket_payload, import_log, error_message, import_count, ip_address';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.$this->table_element;
 		$sql .= ' WHERE rowid = '.((int) $id);
 
@@ -135,7 +136,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 	 */
 	public function fetchByToken($rawToken, $entity)
 	{
-		$sql = 'SELECT rowid, entity, token_hash, fk_commandefourn, fk_soc, fk_user, protocol, status, datec, tms, date_validity, date_return, date_import, raw_payload, normalized_payload, import_log, error_message, import_count, ip_address';
+		$sql = 'SELECT rowid, entity, token_hash, fk_commandefourn, fk_soc, fk_user, protocol, status, datec, tms, date_validity, date_return, date_import, raw_payload, normalized_payload, basket_payload, import_log, error_message, import_count, ip_address';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.$this->table_element;
 		$sql .= " WHERE token_hash = '".$this->db->escape(LmdbWurthPunchoutSecurity::hashToken($rawToken))."'";
 		$sql .= ' AND entity = '.((int) $entity);
@@ -214,17 +215,21 @@ class LmdbWurthPunchoutSession extends CommonObject
 	 *
 	 * @param string             $rawPayload Raw payload
 	 * @param array<int,array<string,mixed>> $lines Normalized lines
+	 * @param array<string,mixed>|null $basketPayload Structured basket metadata
 	 * @return int
 	 */
-	public function storeReturn($rawPayload, $lines)
+	public function storeReturn($rawPayload, $lines, $basketPayload = null)
 	{
 		$this->db->begin();
+
+		$basketPayloadJson = $basketPayload !== null ? json_encode($basketPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
 
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;
 		$sql .= " SET status = '".self::STATUS_RETURNED."'";
 		$sql .= ", date_return = '".$this->db->idate(dol_now())."'";
 		$sql .= ", raw_payload = '".$this->db->escape($rawPayload)."'";
 		$sql .= ", normalized_payload = '".$this->db->escape(json_encode($lines, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))."'";
+		$sql .= $basketPayloadJson !== null ? ", basket_payload = '".$this->db->escape($basketPayloadJson)."'" : ', basket_payload = NULL';
 		$sql .= ' WHERE rowid = '.((int) $this->id);
 
 		if (!$this->db->query($sql)) {
@@ -244,7 +249,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 		foreach ($lines as $line) {
 			$lineIndex++;
 			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line (';
-			$sql .= 'entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate';
+			$sql .= 'entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate, source_line_number, supplier_part_auxiliary_id, classification_domain, classification, tax_amount, tax_currency';
 			$sql .= ') VALUES (';
 			$sql .= ((int) $this->entity);
 			$sql .= ', '.((int) $this->id);
@@ -261,6 +266,12 @@ class LmdbWurthPunchoutSession extends CommonObject
 			$sql .= ", '".$this->db->escape((string) ($line['currency'] ?? ''))."'";
 			$sql .= ', '.((int) ($line['leadtime_days'] ?? 0));
 			$sql .= ', '.price2num((float) ($line['vat_rate'] ?? 0), 'MT');
+			$sql .= ", '".$this->db->escape((string) ($line['source_line_number'] ?? ''))."'";
+			$sql .= ", '".$this->db->escape((string) ($line['supplier_part_auxiliary_id'] ?? ''))."'";
+			$sql .= ", '".$this->db->escape((string) ($line['classification_domain'] ?? ''))."'";
+			$sql .= ", '".$this->db->escape((string) ($line['classification'] ?? ''))."'";
+			$sql .= ', '.price2num((float) ($line['tax_amount'] ?? 0), 'MU');
+			$sql .= ", '".$this->db->escape((string) ($line['tax_currency'] ?? ''))."'";
 			$sql .= ')';
 
 			if (!$this->db->query($sql)) {
@@ -274,6 +285,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$this->status = self::STATUS_RETURNED;
 		$this->raw_payload = $rawPayload;
 		$this->normalized_payload = json_encode($lines, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$this->basket_payload = $basketPayloadJson;
 
 		return 1;
 	}
@@ -286,7 +298,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 	public function fetchLines()
 	{
 		$lines = array();
-		$sql = 'SELECT rowid, entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, fk_unit, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate, fk_product, fk_product_fournisseur_price, fk_commandefourndet, warning';
+		$sql = 'SELECT rowid, entity, fk_session, line_index, vendor_ref, external_id, label, description, qty, unit_code, fk_unit, price, price_unit, unit_price_ht, currency, leadtime_days, vat_rate, source_line_number, supplier_part_auxiliary_id, classification_domain, classification, tax_amount, tax_currency, fk_product, fk_product_fournisseur_price, fk_commandefourndet, warning';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session_line';
 		$sql .= ' WHERE fk_session = '.((int) $this->id);
 		$sql .= ' ORDER BY line_index ASC';
@@ -364,6 +376,34 @@ class LmdbWurthPunchoutSession extends CommonObject
 	}
 
 	/**
+	 * Store an import blocking log while keeping the session importable.
+	 *
+	 * @param array<string,mixed> $summary      Import summary
+	 * @param string              $errorMessage Blocking message
+	 * @return int
+	 */
+	public function markImportBlocked($summary, $errorMessage = '')
+	{
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;
+		$sql .= " SET status = '".self::STATUS_RETURNED."'";
+		$sql .= ", import_log = '".$this->db->escape(json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))."'";
+		$sql .= ", error_message = '".$this->db->escape($errorMessage)."'";
+		$sql .= ' WHERE rowid = '.((int) $this->id);
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		$this->status = self::STATUS_RETURNED;
+		$this->import_log = json_encode($summary, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+		$this->error_message = $errorMessage;
+
+		return 1;
+	}
+
+	/**
 	 * Expire old sessions.
 	 *
 	 * @return int Number of updated rows when known
@@ -400,7 +440,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$limit = dol_now() - ($days * 86400);
 
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;
-		$sql .= ' SET raw_payload = NULL, normalized_payload = NULL';
+		$sql .= ' SET raw_payload = NULL, normalized_payload = NULL, basket_payload = NULL';
 		$sql .= ' WHERE entity = '.((int) $conf->entity);
 		$sql .= " AND datec < '".$this->db->idate($limit)."'";
 
