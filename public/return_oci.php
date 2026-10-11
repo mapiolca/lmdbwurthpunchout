@@ -5,8 +5,7 @@
  * Public OCI return endpoint.
  *
  * This endpoint accepts a third-party browser postback, verifies the
- * Punchout one-time token, stores the payload, and imports it immediately
- * with the Dolibarr user that initiated the Punchout session.
+ * Punchout one-time token, stores the payload, and offers an authenticated import confirmation.
  */
 
 if (!defined('NOSESSION')) {
@@ -46,6 +45,10 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutparser.class.php';
 require_once __DIR__.'/return_common.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
+
+if (!isModEnabled('lmdbwurthpunchout')) {
+	accessforbidden();
+}
 
 $token = GETPOST('token', 'alphanohtml');
 $entity = GETPOSTINT('entity');
@@ -132,10 +135,9 @@ function handlePunchoutReturn($session, $protocol, $rawPayload, $payload)
 	try {
 		$parser = new LmdbWurthPunchoutParser();
 		$lines = $parser->parseOci($payload);
-		$summary = lmdbwurthpunchoutStoreAndImportReturn($session, $protocol, $rawPayload, $lines);
-		lmdbwurthpunchoutRenderImportDone($session, $summary);
+		lmdbwurthpunchoutStoreReturn($session, $protocol, $rawPayload, $lines);
+		lmdbwurthpunchoutRenderBasketStored($session);
 	} catch (Exception $e) {
-		$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
 		lmdbwurthpunchoutRenderReturnError($e);
 	}
 }

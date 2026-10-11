@@ -81,8 +81,8 @@ La page de réglages permet de créer ou compléter le tiers fournisseur `WURTH 
 2. Le bouton `Punchout WURTH` apparaît sur la fiche.
 3. Le module crée une session Punchout temporaire et envoie l'utilisateur vers WURTH.
 4. WURTH retourne le panier sur l'URL publique du module.
-5. Le module stocke le payload brut et les lignes normalisées, puis importe automatiquement le panier.
-6. Le module crée ou retrouve les produits, met à jour les prix fournisseur et ajoute les lignes dans la commande.
+5. Le module stocke le payload brut et les lignes normalisées, puis propose un lien vers la confirmation d’import authentifiée, protégée par le token CSRF Dolibarr.
+6. Après confirmation de l’utilisateur dans Dolibarr, le module crée ou retrouve les produits, met à jour les prix fournisseur et ajoute les lignes dans la commande.
 7. L'utilisateur est renvoyé vers la commande fournisseur.
 
 ## Multicompany
@@ -120,3 +120,12 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Produit créé avec préfixe configuré.
 - Unité WURTH non mappée importée avec avertissement.
 - Deux entités Multicompany avec configurations distinctes.
+
+
+## Mise à jour préparée 1.0.2
+
+Réactiver le module par le mécanisme natif Dolibarr pour mettre à jour les définitions de permissions. La migration conserve les attributions utilisateurs/groupes de l’ancien droit d’utilisation `45001500` vers `45001503`. Les droits de lecture des sessions (`45001501`) et de configuration (`45001502`) restent inchangés ; l’offset 0 est réservé définitivement. Une collision de définition bloque la migration. Les administrateurs doivent aussi disposer des droits fonctionnels du module ; le rôle seul ne les accorde plus.
+
+Le retour public reçoit et stocke le panier sans modifier la commande, les produits ou les prix fournisseur. Son lien ouvre la confirmation d’import authentifiée. L’utilisateur confirme par POST avec le token CSRF Dolibarr. L’import conserve l’exigence d’entité propriétaire active et refuse un utilisateur externe. Un verrou sur la session empêche deux imports concurrents du même panier.
+
+Les règles REP appartiennent exclusivement à leur entité : une règle en entité 1 ne sert plus de repli implicite pour une autre entité. Préparer les règles nécessaires dans chaque entité concernée. Les limites des contrôles sont détaillées dans [test/VALIDATION.md](test/VALIDATION.md).

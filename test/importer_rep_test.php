@@ -59,7 +59,7 @@ $stubFiles = array(
 	'/fourn/class/fournisseur.product.class.php' => '<?php class ProductFournisseur {}',
 	'/product/class/product.class.php' => '<?php class Product {}',
 	'/societe/class/societe.class.php' => '<?php class Societe {}',
-	'/core/class/commonobject.class.php' => '<?php class CommonObject {}',
+	'/core/class/commonobject.class.php' => '<?php class CommonObject { public $db; public $error = ""; }',
 );
 foreach ($stubFiles as $path => $content) {
 	$fullPath = $stubRoot.$path;

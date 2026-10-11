@@ -22,7 +22,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 
 $langs->loadLangs(array('admin', 'orders', 'companies', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
-if (!$user->admin && !LmdbWurthPunchoutSecurity::canReadSessions($user)) {
+if (!isModEnabled('lmdbwurthpunchout') || !empty($user->socid) || !$user->hasRight('lmdbwurthpunchout', 'session', 'read')) {
 	accessforbidden();
 }
 
@@ -78,9 +78,11 @@ $num = $db->num_rows($resql);
 llxHeader('', $langs->trans('LmdbWurthPunchoutSessions'));
 lmdbwurthpunchoutPrintAdminHeader('sessions');
 
+print '<form method="GET" action="'.$pageUrl.'">';
+print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
+print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
 print_barre_liste($langs->trans('LmdbWurthPunchoutSessions'), $page, $pageUrl, $param, $sortfield, $sortorder, '', $num, -1, 'technic', 0, '', '', $limit);
 
-print '<form method="GET" action="'.$pageUrl.'">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre_filter">';
 print '<td></td>';

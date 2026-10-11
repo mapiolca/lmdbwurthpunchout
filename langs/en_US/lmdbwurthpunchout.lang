@@ -159,3 +159,5 @@ MainFeatures=Main features
 UsefulLinks=Useful links
 LmdbWurthPunchoutDependencies=Suppliers and supplier orders module. Products/services module.
 LmdbWurthPunchoutMainFeatures=Punchout button on WURTH supplier orders, OCI/cXML basket return, optional product creation, supplier price update, secure line import.
+
+LmdbWurthPunchoutBasketStored=WURTH basket received. Confirm its import from your Dolibarr session.

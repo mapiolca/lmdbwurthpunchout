@@ -31,20 +31,20 @@ class LmdbWurthPunchoutCxmlClient
 		$cxml->setAttribute('version', self::CXML_VERSION);
 		$cxml->setAttribute('payloadID', $payloadId);
 		$cxml->setAttribute('timestamp', $timestamp);
-		$cxml->setAttribute('xml:lang', LmdbWurthPunchoutConfig::getString('CXML_LANG', 'en-US'));
+		$cxml->setAttribute('xml:lang', getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_LANG', 'en-US'));
 		$doc->appendChild($cxml);
 
 		$header = $cxml->appendChild($doc->createElement('Header'));
-		$this->appendCredential($doc, $header, 'From', LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY'));
-		$this->appendCredential($doc, $header, 'To', LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN'), LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY'));
+		$this->appendCredential($doc, $header, 'From', getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN'), getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY'));
+		$this->appendCredential($doc, $header, 'To', getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN'), getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY'));
 		$sender = $header->appendChild($doc->createElement('Sender'));
-		$senderDomain = LmdbWurthPunchoutConfig::getString('CXML_SENDER_DOMAIN');
+		$senderDomain = getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN');
 		if ($senderDomain === '') {
-			$senderDomain = LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN');
+			$senderDomain = getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN');
 		}
-		$senderIdentity = LmdbWurthPunchoutConfig::getString('CXML_SENDER_IDENTITY');
+		$senderIdentity = getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY');
 		if ($senderIdentity === '') {
-			$senderIdentity = LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY');
+			$senderIdentity = getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY');
 		}
 		$senderCredential = $this->appendCredentialContent($doc, $sender, $senderDomain, $senderIdentity);
 		$secret = $senderCredential->appendChild($doc->createElement('SharedSecret'));
@@ -52,7 +52,7 @@ class LmdbWurthPunchoutCxmlClient
 		$sender->appendChild($doc->createElement('UserAgent', 'Dolibarr WURTH Punchout'));
 
 		$request = $cxml->appendChild($doc->createElement('Request'));
-		$request->setAttribute('deploymentMode', LmdbWurthPunchoutConfig::getString('CXML_MODE', 'production') === 'test' ? 'test' : 'production');
+		$request->setAttribute('deploymentMode', getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_MODE', 'production') === 'test' ? 'test' : 'production');
 		$punchout = $request->appendChild($doc->createElement('PunchOutSetupRequest'));
 		$punchout->setAttribute('operation', 'create');
 		$buyerCookieNode = $punchout->appendChild($doc->createElement('BuyerCookie'));
@@ -62,7 +62,7 @@ class LmdbWurthPunchoutCxmlClient
 		$browserPostUrl->appendChild($doc->createTextNode($returnUrl));
 		$supplierSetup = $punchout->appendChild($doc->createElement('SupplierSetup'));
 		$supplierSetupUrl = $supplierSetup->appendChild($doc->createElement('URL'));
-		$supplierSetupUrl->appendChild($doc->createTextNode(LmdbWurthPunchoutConfig::getString('CXML_URL')));
+		$supplierSetupUrl->appendChild($doc->createTextNode(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_URL')));
 
 		return (string) $doc->saveXML();
 	}
@@ -81,7 +81,7 @@ class LmdbWurthPunchoutCxmlClient
 		}
 
 		$xml = $this->buildSetupRequest($returnUrl, $buyerCookie);
-		$ch = curl_init(LmdbWurthPunchoutConfig::getString('CXML_URL'));
+		$ch = curl_init(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_URL'));
 		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
 		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: text/xml; charset=UTF-8', 'Accept: text/xml, application/xml'));
