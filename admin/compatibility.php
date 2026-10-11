@@ -22,7 +22,7 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 
 $langs->loadLangs(array('admin', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
-if (!$user->admin && !LmdbWurthPunchoutSecurity::canConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbwurthpunchout', 'setup', 'write')) {
 	accessforbidden();
 }
 

@@ -159,3 +159,5 @@ MainFeatures=Fonctionnalités principales
 UsefulLinks=Liens utiles
 LmdbWurthPunchoutDependencies=Module Fournisseurs et commandes fournisseurs. Module Produits/services.
 LmdbWurthPunchoutMainFeatures=Bouton Punchout sur commande fournisseur WURTH, retour panier OCI/cXML, création produit optionnelle, mise à jour prix fournisseur, import sécurisé des lignes.
+
+LmdbWurthPunchoutBasketStored=Panier WURTH reçu. Confirmez son import depuis votre session Dolibarr.

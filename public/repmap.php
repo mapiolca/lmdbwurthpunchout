@@ -24,7 +24,7 @@ $langs->loadLangs(array('admin', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 if (!isModEnabled('lmdbwurthpunchout')) {
 	accessforbidden();
 }
-if (!$user->admin && !LmdbWurthPunchoutSecurity::canConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbwurthpunchout', 'setup', 'write')) {
 	accessforbidden();
 }
 

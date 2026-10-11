@@ -62,7 +62,7 @@ class LmdbWurthPunchoutParser
 			}
 
 			$unitPrice = $price;
-			if (LmdbWurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') === 'divide') {
+			if (getDolGlobalString('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'divide') === 'divide') {
 				$unitPrice = $price / $priceUnit;
 			}
 
@@ -78,7 +78,7 @@ class LmdbWurthPunchoutParser
 				'unit_price_ht' => $unitPrice,
 				'currency' => strtoupper(trim((string) ($item['CURRENCY'] ?? LmdbWurthPunchoutConfig::getExpectedCurrency()))),
 				'leadtime_days' => (int) self::toFloat($item['LEADTIME'] ?? 0),
-				'vat_rate' => LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0),
+				'vat_rate' => (float) price2num(getDolGlobalString('LMDBWURTHPUNCHOUT_DEFAULT_VAT', '20')),
 			);
 		}
 
@@ -133,7 +133,7 @@ class LmdbWurthPunchoutParser
 			$shortName = $this->xpathText($xpath, './/*[local-name()="ShortName"]', $item);
 			$description = $this->xpathText($xpath, './/*[local-name()="Description"]', $item);
 			$taxNode = $xpath->query('.//*[local-name()="TaxDetail"]', $item)->item(0);
-			$vatRate = LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+			$vatRate = (float) price2num(getDolGlobalString('LMDBWURTHPUNCHOUT_DEFAULT_VAT', '20'));
 			if ($taxNode instanceof DOMElement && $taxNode->hasAttribute('percentageRate')) {
 				$vatRate = self::toFloat($taxNode->getAttribute('percentageRate'));
 			}

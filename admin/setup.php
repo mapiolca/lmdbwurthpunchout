@@ -25,7 +25,7 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutsupplier.class.php';
 
 $langs->loadLangs(array('admin', 'companies', 'products', 'lmdbwurthpunchout@lmdbwurthpunchout'));
 
-if (!$user->admin && !LmdbWurthPunchoutSecurity::canConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbwurthpunchout', 'setup', 'write')) {
 	accessforbidden();
 }
 
@@ -167,7 +167,7 @@ if ($action === 'create_wurth_supplier') {
 	if (!LmdbWurthPunchoutSecurity::checkToken()) {
 		accessforbidden('Bad token');
 	}
-	if (!LmdbWurthPunchoutSecurity::canCreateThirdparty($user)) {
+	if (!$user->hasRight('societe', 'creer')) {
 		accessforbidden($langs->trans('LmdbWurthPunchoutNoThirdpartyCreateRight'));
 	}
 
@@ -207,45 +207,45 @@ print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbWurthPunchou
 print '<tr class="oddeven"><td class="titlefield">'.$langs->trans('Protocol').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_PROTOCOL', $protocolOptions, LmdbWurthPunchoutConfig::getProtocol(), 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutSupplier').'</td><td>';
 if (method_exists($form, 'select_company')) {
-	print $form->select_company(LmdbWurthPunchoutConfig::getInt('FK_SOC'), 'LMDBWURTHPUNCHOUT_FK_SOC', '(s.fournisseur:=:1)', 1, 0, 0, array(), 0, 'minwidth300');
+	print $form->select_company(getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC'), 'LMDBWURTHPUNCHOUT_FK_SOC', '(s.fournisseur:=:1)', 1, 0, 0, array(), 0, 'minwidth300');
 } else {
-	print '<input class="flat maxwidth100" type="text" name="LMDBWURTHPUNCHOUT_FK_SOC" value="'.LmdbWurthPunchoutConfig::getInt('FK_SOC').'">';
+	print '<input class="flat maxwidth100" type="text" name="LMDBWURTHPUNCHOUT_FK_SOC" value="'.getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC').'">';
 }
 print '</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOpenMode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_OPEN_MODE', $openModeOptions, LmdbWurthPunchoutConfig::getOpenMode(), 0, 0, 0, '', 0, 0, 0, '', 'minwidth200').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Currency').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CURRENCY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getExpectedCurrency()).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('DefaultVATRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_DEFAULT_VAT" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('DEFAULT_VAT', '20')).'"> %</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCreateProducts').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CREATE_PRODUCTS', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CREATE_PRODUCTS', 1) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutAllowZeroPrice').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_ALLOW_ZERO_PRICE') : $langs->trans(LmdbWurthPunchoutConfig::getInt('ALLOW_ZERO_PRICE', 0) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutProductRefPrefix').'</td><td><input class="flat minwidth100" name="LMDBWURTHPUNCHOUT_PRODUCT_REF_PREFIX" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('PRODUCT_REF_PREFIX', 'WURTH-')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutPriceUnitMode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', $priceUnitOptions, LmdbWurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutTokenTtl').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_TOKEN_TTL" value="'.LmdbWurthPunchoutConfig::getInt('TOKEN_TTL', 30).'"> '.$langs->trans('Minutes').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutRetentionDays').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_RETENTION_DAYS" value="'.LmdbWurthPunchoutConfig::getInt('RETENTION_DAYS', 30).'"> '.$langs->trans('days').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('DefaultVATRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_DEFAULT_VAT" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_DEFAULT_VAT', '20')).'"> %</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCreateProducts').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CREATE_PRODUCTS', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(getDolGlobalInt('LMDBWURTHPUNCHOUT_CREATE_PRODUCTS', 1) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutAllowZeroPrice').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_ALLOW_ZERO_PRICE') : $langs->trans(getDolGlobalInt('LMDBWURTHPUNCHOUT_ALLOW_ZERO_PRICE', 0) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutProductRefPrefix').'</td><td><input class="flat minwidth100" name="LMDBWURTHPUNCHOUT_PRODUCT_REF_PREFIX" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_PRODUCT_REF_PREFIX', 'WURTH-')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutPriceUnitMode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', $priceUnitOptions, getDolGlobalString('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'divide'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutTokenTtl').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_TOKEN_TTL" value="'.getDolGlobalInt('LMDBWURTHPUNCHOUT_TOKEN_TTL', 30).'"> '.$langs->trans('Minutes').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutRetentionDays').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_RETENTION_DAYS" value="'.getDolGlobalInt('LMDBWURTHPUNCHOUT_RETENTION_DAYS', 30).'"> '.$langs->trans('days').'</td></tr>';
 
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbWurthPunchoutOciSettings').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciUrl').'</td><td><input class="flat minwidth500" name="LMDBWURTHPUNCHOUT_OCI_URL" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('OCI_URL')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciOrganization').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_OCI_ORGANIZATION" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('OCI_ORGANIZATION')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciName').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_OCI_NAME" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('OCI_NAME')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciUrl').'</td><td><input class="flat minwidth500" name="LMDBWURTHPUNCHOUT_OCI_URL" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_URL')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciOrganization').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_OCI_ORGANIZATION" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_ORGANIZATION')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutOciName').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_OCI_NAME" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_NAME')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Password').'</td><td><input class="flat minwidth200" type="password" autocomplete="new-password" name="LMDBWURTHPUNCHOUT_OCI_PASSWORD" value="" placeholder="'.(LmdbWurthPunchoutConfig::getSecret('OCI_PASSWORD') !== '' ? dol_escape_htmltag($langs->trans('LmdbWurthPunchoutSecretAlreadySaved')) : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('Method').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_OCI_METHOD', $methodOptions, LmdbWurthPunchoutConfig::getString('OCI_METHOD', 'GET'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth100').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('Method').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_OCI_METHOD', $methodOptions, getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_METHOD', 'GET'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth100').'</td></tr>';
 
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbWurthPunchoutCxmlSettings').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlUrl').'</td><td><input class="flat minwidth500" name="LMDBWURTHPUNCHOUT_CXML_URL" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_URL')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlUrl').'</td><td><input class="flat minwidth500" name="LMDBWURTHPUNCHOUT_CXML_URL" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_URL')).'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSharedSecret').'</td><td><input class="flat minwidth200" type="password" autocomplete="new-password" name="LMDBWURTHPUNCHOUT_CXML_SHARED_SECRET" value="" placeholder="'.(LmdbWurthPunchoutConfig::getSecret('CXML_SHARED_SECRET') !== '' ? dol_escape_htmltag($langs->trans('LmdbWurthPunchoutSecretAlreadySaved')) : '').'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_DOMAIN')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_CUSTOMER_IDENTITY')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SENDER_DOMAIN')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SENDER_IDENTITY')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_DOMAIN')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SUPPLIER_IDENTITY')).'"></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('Mode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_MODE', $cxmlModeOptions, LmdbWurthPunchoutConfig::getString('CXML_MODE', 'production'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth150').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportShipping').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDelta').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1) ? 'Yes' : 'No')).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDeltaHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportRep').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1) ? 'Yes' : 'No')).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT', $shippingProductOptions, LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepProductHelp').'</span></td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE" value="'.dol_escape_htmltag(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRateHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_DOMAIN')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlCustomerIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_CUSTOMER_IDENTITY')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SENDER_DOMAIN')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSenderIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SENDER_IDENTITY')).'"> <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlSenderFallbackHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierDomain').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_DOMAIN')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlSupplierIdentity').'</td><td><input class="flat minwidth200" name="LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SUPPLIER_IDENTITY')).'"></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('Mode').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_MODE', $cxmlModeOptions, getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_MODE', 'production'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth150').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportShipping').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', 1) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDelta').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1) ? 'Yes' : 'No')).' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlInferShippingFromTaxDeltaHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT', $shippingProductOptions, getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingProductHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlShippingVatRateHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlImportRep').'</td><td>'.(function_exists('ajax_constantonoff') ? ajax_constantonoff('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', array(), null, 0, 0, 0, 2, 0, 1) : $langs->trans(getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', 1) ? 'Yes' : 'No')).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepProduct').'</td><td>'.$form->selectarray('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT', $shippingProductOptions, getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').' <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepProductHelp').'</span></td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRate').'</td><td><input class="flat width50" name="LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE" value="'.dol_escape_htmltag(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE')).'"> % <span class="opacitymedium">'.$langs->trans('LmdbWurthPunchoutCxmlRepVatRateHelp').'</span></td></tr>';
 print '</table>';
 
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"></div>';
@@ -277,7 +277,7 @@ function renderWurthFranceSupplierSection($db)
 {
 	global $langs, $user;
 
-	$socid = LmdbWurthPunchoutConfig::getInt('FK_SOC');
+	$socid = getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC');
 	$currentSupplier = '<span class="opacitymedium">'.$langs->trans('NotConfigured').'</span>';
 	if ($socid > 0) {
 		$societe = new Societe($db);
@@ -303,7 +303,7 @@ function renderWurthFranceSupplierSection($db)
 	print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutSiret').'</td><td>'.dol_escape_htmltag($data['idprof2']).'</td></tr>';
 	print '<tr class="oddeven"><td>'.$langs->trans('LmdbWurthPunchoutApe').'</td><td>'.dol_escape_htmltag($data['idprof3']).'</td></tr>';
 	print '<tr class="oddeven"><td>'.$langs->trans('Action').'</td><td>';
-	if (LmdbWurthPunchoutSecurity::canCreateThirdparty($user)) {
+	if ($user->hasRight('societe', 'creer')) {
 		print '<form method="POST" action="'.dol_buildpath('/lmdbwurthpunchout/admin/setup.php', 1).'">';
 		print '<input type="hidden" name="token" value="'.newToken().'">';
 		print '<input type="hidden" name="action" value="create_wurth_supplier">';

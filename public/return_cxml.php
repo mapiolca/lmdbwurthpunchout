@@ -44,6 +44,10 @@ require_once __DIR__.'/return_common.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors'));
 
+if (!isModEnabled('lmdbwurthpunchout')) {
+	accessforbidden();
+}
+
 $token = GETPOST('token', 'alphanohtml');
 $entity = GETPOSTINT('entity');
 
@@ -66,9 +70,8 @@ try {
 	$rawPayload = LmdbWurthPunchoutCxmlPayload::extract($_POST, (string) file_get_contents('php://input'));
 	$parser = new LmdbWurthPunchoutParser();
 	$basket = $parser->parseCxmlBasket($rawPayload);
-	$summary = lmdbwurthpunchoutStoreAndImportReturn($session, 'CXML', $rawPayload, $basket['lines'], $basket);
-	lmdbwurthpunchoutRenderImportDone($session, $summary);
+	lmdbwurthpunchoutStoreReturn($session, 'CXML', $rawPayload, $basket['lines'], $basket);
+	lmdbwurthpunchoutRenderBasketStored($session);
 } catch (Exception $e) {
-	$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
 	lmdbwurthpunchoutRenderReturnError($e);
 }

@@ -7,98 +7,6 @@
 class LmdbWurthPunchoutSecurity
 {
 	/**
-	 * Check a module right with admin bypass.
-	 *
-	 * @param User   $user   User
-	 * @param string $object Right object
-	 * @param string $action Right action
-	 * @return bool
-	 */
-	public static function hasRight($user, $object, $action)
-	{
-		if (!empty($user->admin)) {
-			return true;
-		}
-
-		if (method_exists($user, 'hasRight')) {
-			return (bool) $user->hasRight('lmdbwurthpunchout', $object, $action);
-		}
-
-		return !empty($user->rights->lmdbwurthpunchout->{$object}->{$action});
-	}
-
-	/**
-	 * Check supplier order edit permission with admin bypass.
-	 *
-	 * @param User $user User
-	 * @return bool
-	 */
-	public static function canEditSupplierOrder($user)
-	{
-		if (!empty($user->admin)) {
-			return true;
-		}
-
-		if (method_exists($user, 'hasRight')) {
-			return (bool) ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer'));
-		}
-
-		return !empty($user->rights->fournisseur->commande->creer) || !empty($user->rights->supplier_order->creer);
-	}
-
-	/**
-	 * Check if user may launch Punchout.
-	 *
-	 * @param User $user User
-	 * @return bool
-	 */
-	public static function canUsePunchout($user)
-	{
-		return self::hasRight($user, 'punchout', 'use') && self::canEditSupplierOrder($user);
-	}
-
-	/**
-	 * Check if user may read sessions.
-	 *
-	 * @param User $user User
-	 * @return bool
-	 */
-	public static function canReadSessions($user)
-	{
-		return self::hasRight($user, 'session', 'read');
-	}
-
-	/**
-	 * Check if user may configure the module.
-	 *
-	 * @param User $user User
-	 * @return bool
-	 */
-	public static function canConfigure($user)
-	{
-		return self::hasRight($user, 'setup', 'write');
-	}
-
-	/**
-	 * Check third-party creation permission with admin bypass.
-	 *
-	 * @param User $user User
-	 * @return bool
-	 */
-	public static function canCreateThirdparty($user)
-	{
-		if (!empty($user->admin)) {
-			return true;
-		}
-
-		if (method_exists($user, 'hasRight')) {
-			return (bool) $user->hasRight('societe', 'creer');
-		}
-
-		return !empty($user->rights->societe->creer);
-	}
-
-	/**
 	 * Check a Dolibarr CSRF token.
 	 *
 	 * @return bool
@@ -118,7 +26,7 @@ class LmdbWurthPunchoutSecurity
 			return hash_equals((string) $_SESSION['newtoken'], (string) $token);
 		}
 
-		return true;
+		return false;
 	}
 
 	/**

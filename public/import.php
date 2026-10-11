@@ -24,10 +24,10 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutsecurity.class.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors', 'orders'));
 
-if (!isModEnabled('lmdbwurthpunchout')) {
+if (!isModEnabled('lmdbwurthpunchout') || !empty($user->socid)) {
 	accessforbidden();
 }
-if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
+if (!($user->hasRight('lmdbwurthpunchout', 'punchout', 'use') && ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer')))) {
 	accessforbidden();
 }
 
@@ -63,12 +63,7 @@ if ($action === 'import') {
 		}
 		$orderUrl = DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn;
 		setEventMessages($message, null, 'mesgs');
-		llxHeader('', $langs->trans('LmdbWurthPunchoutImportBasket'));
-		print load_fiche_titre($langs->trans('LmdbWurthPunchoutImportBasket'), '', 'technic');
-		print '<div class="ok">'.$message.'</div>';
-		lmdbwurthpunchoutPrintReturnToSupplierOrderJavascript($orderUrl, 800);
-		print '<p>'.lmdbwurthpunchoutGetReturnToSupplierOrderButton($orderUrl, 'button button-save').'</p>';
-		llxFooter();
+		header('Location: '.$orderUrl);
 		exit;
 	} catch (LmdbWurthPunchoutRepRulesRequiredException $e) {
 		if ($session->markImportBlocked($e->getSummary(), $e->getMessage()) < 0) {
@@ -80,7 +75,6 @@ if ($action === 'import') {
 		header('Location: '.dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.(int) $session->id);
 		exit;
 	} catch (Exception $e) {
-		$session->setStatus(LmdbWurthPunchoutSession::STATUS_ERROR, $e->getMessage());
 		setEventMessages($langs->trans('LmdbWurthPunchoutImportFailed').' '.$e->getMessage(), null, 'errors');
 		header('Location: '.DOL_URL_ROOT.'/fourn/commande/card.php?id='.(int) $session->fk_commandefourn);
 		exit;

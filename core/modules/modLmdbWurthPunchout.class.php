@@ -37,7 +37,7 @@ class modLmdbWurthPunchout extends DolibarrModules
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbWurthPunchoutModuleDescription';
 		$this->descriptionlong = 'LmdbWurthPunchoutModuleDescriptionLong';
-		$this->version = '1.0.0';
+		$this->version = '1.0.1';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'lmdbwurthpunchout.png@lmdbwurthpunchout';
 		$this->editor_name = 'Les Métiers du Bâtiment';
@@ -106,23 +106,24 @@ class modLmdbWurthPunchout extends DolibarrModules
 		);
 
 		$r = 0;
-		$this->rights[$r][0] = $this->numero * 100 + $r;
-		$this->rights[$r][1] = 'LmdbWurthPunchoutRightUse';
-		$this->rights[$r][4] = 'punchout';
-		$this->rights[$r][5] = 'use';
+		// Existing offsets 1 and 2 remain stable; legacy offset 0 is reserved.
 		$r++;
-
 		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'LmdbWurthPunchoutRightReadSessions';
 		$this->rights[$r][4] = 'session';
 		$this->rights[$r][5] = 'read';
-		$r++;
 
+		$r++;
 		$this->rights[$r][0] = $this->numero * 100 + $r;
 		$this->rights[$r][1] = 'LmdbWurthPunchoutRightConfigure';
 		$this->rights[$r][4] = 'setup';
 		$this->rights[$r][5] = 'write';
+
 		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LmdbWurthPunchoutRightUse';
+		$this->rights[$r][4] = 'punchout';
+		$this->rights[$r][5] = 'use';
 
 		$this->menu = array();
 	}
@@ -143,9 +144,61 @@ class modLmdbWurthPunchout extends DolibarrModules
 		if ($this->upgradeSchema() < 0) {
 			return -1;
 		}
+		if ($this->migratePunchoutPermission() < 0) {
+			return -1;
+		}
 		$this->initDefaultUnitMap();
 
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Move legacy use permission to offset 3 while preserving user/group grants.
+	 * Offsets 1 and 2 are unchanged. The retired offset 0 is never reused.
+	 *
+	 * @return int
+	 */
+	protected function migratePunchoutPermission()
+	{
+		$oldId = $this->numero * 100;
+		$newId = $oldId + 3;
+		$sql = 'SELECT id, module, perms, subperms FROM '.MAIN_DB_PREFIX.'rights_def';
+		$sql .= ' WHERE id IN ('.$oldId.', '.$newId.')';
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		while (is_object($right = $this->db->fetch_object($resql))) {
+			if ($right->module !== $this->rights_class || $right->perms !== 'punchout' || $right->subperms !== 'use') {
+				$this->error = 'Punchout permission identifier collision';
+				return -1;
+			}
+		}
+		if (!$this->db->begin()) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		foreach (array('user_rights' => 'fk_user', 'usergroup_rights' => 'fk_usergroup') as $table => $owner) {
+			$sql = 'INSERT IGNORE INTO '.MAIN_DB_PREFIX.$table.' (entity, '.$owner.', fk_id)';
+			$sql .= ' SELECT entity, '.$owner.', '.$newId.' FROM '.MAIN_DB_PREFIX.$table.' WHERE fk_id = '.$oldId;
+			if (!$this->db->query($sql) || !$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.$table.' WHERE fk_id = '.$oldId)) {
+				$this->error = $this->db->lasterror();
+				$this->db->rollback();
+				return -1;
+			}
+		}
+		if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'rights_def WHERE id = '.$oldId." AND module = '".$this->db->escape($this->rights_class)."'")) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		if (!$this->db->commit()) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
+		return 1;
 	}
 
 	/**
