@@ -42,6 +42,13 @@ if (!$sortorder) {
 }
 $search_status = GETPOST('search_status', 'alphanohtml');
 $search_protocol = GETPOST('search_protocol', 'alpha');
+// Native selectarray uses -1 for the empty (all values) option.
+if ($search_status === '-1') {
+	$search_status = '';
+}
+if ($search_protocol === '-1') {
+	$search_protocol = '';
+}
 $form = new Form($db);
 $pageUrl = dol_buildpath('/lmdbwurthpunchout/admin/sessions.php', 1);
 
