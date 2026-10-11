@@ -1,4 +1,4 @@
-# Validation de la préparation 1.0.2
+# Validation de la préparation 1.0.1
 
 Contrôles du 2026-10-11, PHP 8.5.7. Aucun déploiement ni appel WURTH effectué.
 

@@ -122,7 +122,7 @@ La V1 refuse le lancement et l'import lorsque la commande fournisseur appartient
 - Deux entités Multicompany avec configurations distinctes.
 
 
-## Mise à jour préparée 1.0.2
+## Mise à jour préparée 1.0.1
 
 Réactiver le module par le mécanisme natif Dolibarr pour mettre à jour les définitions de permissions. La migration conserve les attributions utilisateurs/groupes de l’ancien droit d’utilisation `45001500` vers `45001503`. Les droits de lecture des sessions (`45001501`) et de configuration (`45001502`) restent inchangés ; l’offset 0 est réservé définitivement. Une collision de définition bloque la migration. Les administrateurs doivent aussi disposer des droits fonctionnels du module ; le rôle seul ne les accorde plus.
 

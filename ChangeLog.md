@@ -1,6 +1,6 @@
 # ChangeLog
 
-## À publier — 1.0.2
+## À publier — compléments à la version 1.0.1
 
 - Réserve les retours OCI/cXML à la réception du panier ; l’import nécessite une confirmation dans une session authentifiée avec protection CSRF et redirection après succès.
 - Respecte directement les permissions natives, sans élévation administrateur implicite, et migre le droit d’utilisation de l’offset 0 vers 3 en conservant les attributions utilisateurs/groupes et les offsets 1/2.
