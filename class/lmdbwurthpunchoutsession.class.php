@@ -82,7 +82,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$this->protocol = strtoupper($protocol);
 		$this->status = self::STATUS_CREATED;
 		$this->datec = dol_now();
-		$this->date_validity = dol_now() + (max(1, LmdbWurthPunchoutConfig::getInt('TOKEN_TTL', 30)) * 60);
+		$this->date_validity = dol_now() + (max(1, getDolGlobalInt('LMDBWURTHPUNCHOUT_TOKEN_TTL', 30)) * 60);
 		$this->ip_address = dol_substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64);
 
 		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.$this->table_element.' (';
@@ -220,7 +220,19 @@ class LmdbWurthPunchoutSession extends CommonObject
 	 */
 	public function storeReturn($rawPayload, $lines, $basketPayload = null)
 	{
-		$this->db->begin();
+		if (!$this->db->begin()) {
+			$this->error = 'Unable to begin Punchout receipt';
+			return -1;
+		}
+		$sql = 'SELECT status FROM '.MAIN_DB_PREFIX.$this->table_element;
+		$sql .= ' WHERE rowid = '.((int) $this->id).' AND entity = '.((int) $this->entity).' FOR UPDATE';
+		$resql = $this->db->query($sql);
+		$lockedSession = $resql ? $this->db->fetch_object($resql) : false;
+		if (!is_object($lockedSession) || !in_array($lockedSession->status, array(self::STATUS_CREATED, self::STATUS_SENT), true)) {
+			$this->error = 'Punchout basket has already been received or is unavailable';
+			$this->db->rollback();
+			return -1;
+		}
 
 		$basketPayloadJson = $basketPayload !== null ? json_encode($basketPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null;
 
@@ -281,7 +293,11 @@ class LmdbWurthPunchoutSession extends CommonObject
 			}
 		}
 
-		$this->db->commit();
+		if (!$this->db->commit()) {
+			$this->error = 'Unable to commit Punchout receipt';
+			$this->db->rollback();
+			return -1;
+		}
 		$this->status = self::STATUS_RETURNED;
 		$this->raw_payload = $rawPayload;
 		$this->normalized_payload = json_encode($lines, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -390,6 +406,8 @@ class LmdbWurthPunchoutSession extends CommonObject
 		$sql .= ", error_message = '".$this->db->escape($errorMessage)."'";
 		$sql .= ' WHERE rowid = '.((int) $this->id);
 
+		$sql .= ' AND entity = '.((int) $this->entity);
+		$sql .= " AND status = '".self::STATUS_RETURNED."'";
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			$this->error = $this->db->lasterror();
@@ -436,7 +454,7 @@ class LmdbWurthPunchoutSession extends CommonObject
 	{
 		global $conf;
 
-		$days = max(1, LmdbWurthPunchoutConfig::getInt('RETENTION_DAYS', 30));
+		$days = max(1, getDolGlobalInt('LMDBWURTHPUNCHOUT_RETENTION_DAYS', 30));
 		$limit = dol_now() - ($days * 86400);
 
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.$this->table_element;

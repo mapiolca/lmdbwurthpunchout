@@ -160,7 +160,7 @@ function lmdbwurthpunchoutRenderRetryImportBlock($db, $retrySessionId, $showBack
 
 	print '<div class="info">';
 	print '<span>'.$langs->trans('LmdbWurthPunchoutRetryStoredImportHelp').'</span> ';
-	if (LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
+	if (($user->hasRight('lmdbwurthpunchout', 'punchout', 'use') && ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer')))) {
 		$importUrl = dol_buildpath('/lmdbwurthpunchout/public/import.php', 1).'?id='.((int) $session->id);
 		print '<a class="button button-save" href="'.dol_escape_htmltag($importUrl).'">'.$langs->trans('LmdbWurthPunchoutRetryStoredImport').'</a> ';
 	}

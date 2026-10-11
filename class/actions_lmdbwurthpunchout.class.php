@@ -58,7 +58,7 @@ class ActionsLmdbwurthpunchout
 			return 0;
 		}
 
-		if (empty($conf->lmdbwurthpunchout->enabled) && !isModEnabled('lmdbwurthpunchout')) {
+		if (!isModEnabled('lmdbwurthpunchout') || !empty($user->socid)) {
 			return 0;
 		}
 
@@ -66,7 +66,7 @@ class ActionsLmdbwurthpunchout
 			return 0;
 		}
 
-		if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
+		if (!($user->hasRight('lmdbwurthpunchout', 'punchout', 'use') && ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer')))) {
 			return 0;
 		}
 
@@ -82,7 +82,7 @@ class ActionsLmdbwurthpunchout
 			return 0;
 		}
 
-		if ((int) $object->socid !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
+		if ((int) $object->socid !== getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC')) {
 			return 0;
 		}
 

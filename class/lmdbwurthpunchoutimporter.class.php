@@ -123,19 +123,37 @@ class LmdbWurthPunchoutImporter
 	 */
 	public function importStoredSession($session, $user)
 	{
+		global $conf;
+		if (!isModEnabled('lmdbwurthpunchout') || !($user->hasRight('lmdbwurthpunchout', 'punchout', 'use') && ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer'))) || !empty($user->socid)
+			|| (int) $session->entity !== (int) $conf->entity
+			|| ((int) $session->fk_user !== (int) $user->id && empty($user->admin))) {
+			throw new RuntimeException('Punchout import access denied');
+		}
+
 		if ($session->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
 			throw new RuntimeException('Punchout session is not importable');
 		}
 
 		$this->assertCxmlRepRulesReady($session);
 
-		$this->db->begin();
+		if (!$this->db->begin()) {
+			throw new RuntimeException('Unable to begin Punchout import');
+		}
 		try {
+			$sql = 'SELECT status FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_session';
+			$sql .= ' WHERE rowid = '.((int) $session->id).' AND entity = '.((int) $conf->entity).' FOR UPDATE';
+			$resql = $this->db->query($sql);
+			$lockedSession = $resql ? $this->db->fetch_object($resql) : false;
+			if (!is_object($lockedSession) || $lockedSession->status !== LmdbWurthPunchoutSession::STATUS_RETURNED) {
+				throw new RuntimeException('Punchout session is no longer importable');
+			}
 			$summary = $this->importSession($session, $user);
 			if ($session->markImported($summary) < 0) {
 				throw new RuntimeException($session->error);
 			}
-			$this->db->commit();
+			if (!$this->db->commit()) {
+				throw new RuntimeException('Unable to commit Punchout import');
+			}
 
 			return $summary;
 		} catch (Exception $e) {
@@ -151,7 +169,7 @@ class LmdbWurthPunchoutImporter
 	 * @param User                 $user    User
 	 * @return array<string,mixed>
 	 */
-	public function importSession($session, $user)
+	private function importSession($session, $user)
 	{
 		global $conf;
 
@@ -166,7 +184,7 @@ class LmdbWurthPunchoutImporter
 		if ((int) $order->entity !== (int) $conf->entity) {
 			throw new RuntimeException('Supplier order belongs to another entity');
 		}
-		if ((int) $order->socid !== (int) $session->fk_soc || (int) $session->fk_soc !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
+		if ((int) $order->socid !== (int) $session->fk_soc || (int) $session->fk_soc !== getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC')) {
 			throw new RuntimeException('Supplier order does not match configured WURTH supplier');
 		}
 		if ((int) $order->statut !== CommandeFournisseur::STATUS_DRAFT) {
@@ -197,7 +215,7 @@ class LmdbWurthPunchoutImporter
 				$productId = $this->findProductByGeneratedRef((string) $line['vendor_ref']);
 			}
 			if ($productId <= 0) {
-				if (!LmdbWurthPunchoutConfig::getInt('CREATE_PRODUCTS', 1)) {
+				if (!getDolGlobalInt('LMDBWURTHPUNCHOUT_CREATE_PRODUCTS', 1)) {
 					throw new RuntimeException('Product not found and product creation is disabled: '.$line['vendor_ref']);
 				}
 				$productId = $this->createProduct($line, $user);
@@ -256,7 +274,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function assertCxmlRepRulesReady($session)
 	{
-		if (strtoupper((string) $session->protocol) !== 'CXML' || !LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+		if (strtoupper((string) $session->protocol) !== 'CXML' || !getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', 1)) {
 			return;
 		}
 
@@ -316,7 +334,7 @@ class LmdbWurthPunchoutImporter
 		if ((float) $line['qty'] <= 0) {
 			throw new RuntimeException('Invalid quantity for '.$line['vendor_ref']);
 		}
-		if ((float) $line['unit_price_ht'] <= 0 && !LmdbWurthPunchoutConfig::getInt('ALLOW_ZERO_PRICE', 0)) {
+		if ((float) $line['unit_price_ht'] <= 0 && !getDolGlobalInt('LMDBWURTHPUNCHOUT_ALLOW_ZERO_PRICE', 0)) {
 			throw new RuntimeException('Zero price refused for '.$line['vendor_ref']);
 		}
 		if (strtoupper((string) $line['currency']) !== LmdbWurthPunchoutConfig::getExpectedCurrency()) {
@@ -432,7 +450,7 @@ class LmdbWurthPunchoutImporter
 
 		$qtyForSupplierPrice = max(1, (float) ($line['price_unit'] ?? 1));
 		$priceForSupplierQty = (float) ($line['price'] ?? $line['unit_price_ht']);
-		if (LmdbWurthPunchoutConfig::getString('PRICEUNIT_MODE', 'divide') !== 'divide') {
+		if (getDolGlobalString('LMDBWURTHPUNCHOUT_PRICEUNIT_MODE', 'divide') !== 'divide') {
 			$qtyForSupplierPrice = 1;
 			$priceForSupplierQty = (float) $line['unit_price_ht'];
 		}
@@ -503,7 +521,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function buildProductRef($vendorRef)
 	{
-		return LmdbWurthPunchoutConfig::getString('PRODUCT_REF_PREFIX', 'WURTH-').LmdbWurthPunchoutSecurity::normalizeSupplierReference($vendorRef);
+		return getDolGlobalString('LMDBWURTHPUNCHOUT_PRODUCT_REF_PREFIX', 'WURTH-').LmdbWurthPunchoutSecurity::normalizeSupplierReference($vendorRef);
 	}
 
 	/**
@@ -595,7 +613,7 @@ class LmdbWurthPunchoutImporter
 			throw new RuntimeException('Unexpected cXML shipping currency: '.$shippingCurrency.' (expected '.$expectedCurrency.')');
 		}
 
-		if ($shippingAmount > 0 && !LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_SHIPPING', 1)) {
+		if ($shippingAmount > 0 && !getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_SHIPPING', 1)) {
 			$summary['shipping_skipped_reason'] = 'disabled';
 			$summary['warnings'][] = $this->trans('LmdbWurthPunchoutShippingImportDisabled', 'cXML shipping fees were not imported because the option is disabled');
 			$shippingAmount = 0.0;
@@ -607,7 +625,7 @@ class LmdbWurthPunchoutImporter
 				$this->buildShippingDescription($shipping),
 				$shippingAmount,
 				$shippingVatRate,
-				LmdbWurthPunchoutConfig::getInt('CXML_SHIPPING_FK_PRODUCT'),
+				getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_SHIPPING_FK_PRODUCT'),
 				'Configured cXML shipping product/service not found: #',
 				'Unable to add cXML shipping supplier order line'
 			);
@@ -637,7 +655,7 @@ class LmdbWurthPunchoutImporter
 		$summary['rep_amount'] = $repAmount;
 		$summary['rep_tax_amount'] = $this->calculateVatAmount($repAmount, $repVatRate);
 
-		if (!LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+		if (!getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', 1)) {
 			$summary['rep_skipped_reason'] = 'disabled';
 			return;
 		}
@@ -647,7 +665,7 @@ class LmdbWurthPunchoutImporter
 			$this->trans('LmdbWurthPunchoutRepLineLabel', 'REP Taxe n/w'),
 			$repAmount,
 			$repVatRate,
-			LmdbWurthPunchoutConfig::getInt('CXML_REP_FK_PRODUCT'),
+			getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_REP_FK_PRODUCT'),
 			'Configured cXML REP product/service not found: #',
 			'Unable to add cXML REP supplier order line'
 		);
@@ -781,7 +799,7 @@ class LmdbWurthPunchoutImporter
 			$lineTotal += (float) ($line['qty'] ?? 0) * (float) ($line['unit_price_ht'] ?? 0);
 		}
 
-		$delta = round((float) ($total['amount'] ?? 0) - $lineTotal - $shippingAmount, 2);
+		$delta = (float) price2num((float) ($total['amount'] ?? 0) - $lineTotal - $shippingAmount, 'MT');
 		return $delta > 0 ? $delta : 0.0;
 	}
 
@@ -808,7 +826,7 @@ class LmdbWurthPunchoutImporter
 			$lineTaxAmount += (float) ($line['tax_amount'] ?? 0);
 		}
 
-		return round((float) ($headerTax['amount'] ?? 0) - $lineTaxAmount, 6);
+		return (float) price2num((float) ($headerTax['amount'] ?? 0) - $lineTaxAmount, 'MT');
 	}
 
 	/**
@@ -829,7 +847,7 @@ class LmdbWurthPunchoutImporter
 			);
 		}
 
-		$delta = round($reportedLineTaxAmount - $computedProductTaxAmount, 6);
+		$delta = (float) price2num($reportedLineTaxAmount - $computedProductTaxAmount, 'MT');
 		return $delta > 0 ? $delta : 0.0;
 	}
 
@@ -841,7 +859,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function isPositiveTaxDelta($taxDelta)
 	{
-		return $taxDelta > 0.0049;
+		return (float) price2num($taxDelta, 'MT') > 0;
 	}
 
 	/**
@@ -878,7 +896,7 @@ class LmdbWurthPunchoutImporter
 			return false;
 		}
 
-		$remainingAmount = round($repHtDelta - $knownAmount, 8);
+		$remainingAmount = (float) price2num($repHtDelta - $knownAmount, 'MT');
 		if ($remainingAmount < -0.000001) {
 			return false;
 		}
@@ -999,7 +1017,7 @@ class LmdbWurthPunchoutImporter
 	{
 		$emptyFees = array('shipping_amount' => 0.0, 'rep_amount' => 0.0);
 
-		if (!LmdbWurthPunchoutConfig::getInt('CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1)) {
+		if (!getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_INFER_SHIPPING_FROM_TAX_DELTA', 1)) {
 			return $emptyFees;
 		}
 		if ($shippingVatRate <= 0) {
@@ -1020,7 +1038,7 @@ class LmdbWurthPunchoutImporter
 
 		$repAmount = $knownRepAmount > 0 ? $knownRepAmount : $this->getRepAmountForTaxDelta($lines, $entity, $summary);
 		$repTaxAmount = 0.0;
-		if ($repAmount > 0 && LmdbWurthPunchoutConfig::getInt('CXML_IMPORT_REP', 1)) {
+		if ($repAmount > 0 && getDolGlobalInt('LMDBWURTHPUNCHOUT_CXML_IMPORT_REP', 1)) {
 			$repTaxAmount = $this->calculateVatAmount($repAmount, $repVatRate);
 			if (empty($summary['rep_source'])) {
 				$summary['rep_source'] = 'tax_delta';
@@ -1044,9 +1062,9 @@ class LmdbWurthPunchoutImporter
 
 		$shippingTaxDelta = $headerTaxDelta;
 		if (!$this->isPositiveTaxDelta($lineTaxDelta)) {
-			$shippingTaxDelta = round($shippingTaxDelta - $repTaxAmount, 6);
+			$shippingTaxDelta = (float) price2num($shippingTaxDelta - $repTaxAmount, 'MT');
 		}
-		$shippingAmount = $shippingTaxDelta > 0.01 ? round($shippingTaxDelta * 100 / $shippingVatRate, 2) : 0.0;
+		$shippingAmount = $this->isPositiveTaxDelta($shippingTaxDelta) ? (float) price2num($shippingTaxDelta * 100 / $shippingVatRate, 'MU') : 0.0;
 
 		return array(
 			'shipping_amount' => $shippingAmount,
@@ -1062,7 +1080,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function getShippingVatRate($lines)
 	{
-		$configuredVat = trim(LmdbWurthPunchoutConfig::getString('CXML_SHIPPING_VAT_RATE'));
+		$configuredVat = trim(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_SHIPPING_VAT_RATE'));
 		if ($configuredVat !== '') {
 			return LmdbWurthPunchoutParser::toFloat($configuredVat);
 		}
@@ -1078,7 +1096,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function getRepVatRate($lines)
 	{
-		$configuredVat = trim(LmdbWurthPunchoutConfig::getString('CXML_REP_VAT_RATE'));
+		$configuredVat = trim(getDolGlobalString('LMDBWURTHPUNCHOUT_CXML_REP_VAT_RATE'));
 		if ($configuredVat !== '') {
 			return LmdbWurthPunchoutParser::toFloat($configuredVat);
 		}
@@ -1105,11 +1123,11 @@ class LmdbWurthPunchoutImporter
 				continue;
 			}
 			if (abs($commonVat - $vatRate) > 0.000001) {
-				return LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+				return (float) price2num(getDolGlobalString('LMDBWURTHPUNCHOUT_DEFAULT_VAT', '20'));
 			}
 		}
 
-		return $commonVat !== null ? $commonVat : LmdbWurthPunchoutConfig::getFloat('DEFAULT_VAT', 20.0);
+		return $commonVat !== null ? $commonVat : (float) price2num(getDolGlobalString('LMDBWURTHPUNCHOUT_DEFAULT_VAT', '20'));
 	}
 
 	/**
@@ -1192,7 +1210,7 @@ class LmdbWurthPunchoutImporter
 			$summary['rep_source'] = 'product_rule_tax_delta';
 		}
 
-		return round($total, 2);
+		return (float) price2num($total, 'MT');
 	}
 
 	/**
@@ -1205,7 +1223,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function findRepRule($vendorRef, $entity, $statuses)
 	{
-		$entities = array_values(array_unique(array((int) $entity, 1)));
+		$entities = array((int) $entity);
 
 		$sql = 'SELECT entity, vendor_ref, amount_ht, status';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbwurthpunchout_repmap';
@@ -1224,7 +1242,7 @@ class LmdbWurthPunchoutImporter
 			if (function_exists('dol_syslog')) {
 				dol_syslog('LmdbWurthPunchout REP mapping SQL error: '.$this->db->lasterror(), LOG_ERR);
 			}
-			return null;
+			throw new RuntimeException('Unable to read REP rules');
 		}
 
 		$incomingRef = trim($vendorRef);
@@ -1331,7 +1349,7 @@ class LmdbWurthPunchoutImporter
 	 */
 	private function calculateVatAmount($amount, $vatRate)
 	{
-		return round($amount * $vatRate / 100, 2);
+		return (float) price2num($amount * $vatRate / 100, 'MT');
 	}
 
 	/**

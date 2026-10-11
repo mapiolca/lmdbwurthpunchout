@@ -27,13 +27,13 @@ require_once __DIR__.'/../class/lmdbwurthpunchoutcxmlclient.class.php';
 
 $langs->loadLangs(array('lmdbwurthpunchout@lmdbwurthpunchout', 'errors', 'orders'));
 
-if (!isModEnabled('lmdbwurthpunchout')) {
+if (!isModEnabled('lmdbwurthpunchout') || !empty($user->socid)) {
 	accessforbidden();
 }
 if (!LmdbWurthPunchoutSecurity::checkToken()) {
 	accessforbidden('Bad token');
 }
-if (!LmdbWurthPunchoutSecurity::canUsePunchout($user)) {
+if (!($user->hasRight('lmdbwurthpunchout', 'punchout', 'use') && ($user->hasRight('fournisseur', 'commande', 'creer') || $user->hasRight('supplier_order', 'creer')))) {
 	accessforbidden();
 }
 
@@ -49,7 +49,7 @@ $order->fetch_thirdparty();
 if ((int) $order->entity !== (int) $conf->entity) {
 	accessforbidden($langs->trans('LmdbWurthPunchoutWrongEntity'));
 }
-if ((int) $order->socid !== LmdbWurthPunchoutConfig::getInt('FK_SOC')) {
+if ((int) $order->socid !== getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC')) {
 	accessforbidden($langs->trans('LmdbWurthPunchoutWrongSupplier'));
 }
 if ((int) $order->statut !== CommandeFournisseur::STATUS_DRAFT) {
@@ -79,13 +79,13 @@ try {
 		renderLaunchPage($targetUrl, 'GET', array(), $order->id, $embed, $external);
 	} else {
 		$params = array(
-			'ORGANIZATION' => LmdbWurthPunchoutConfig::getString('OCI_ORGANIZATION'),
-			'NAME' => LmdbWurthPunchoutConfig::getString('OCI_NAME'),
+			'ORGANIZATION' => getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_ORGANIZATION'),
+			'NAME' => getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_NAME'),
 			'PASSWORD' => LmdbWurthPunchoutConfig::getSecret('OCI_PASSWORD'),
 			'HOOK_URL' => $returnUrl,
 		);
-		$method = strtoupper(LmdbWurthPunchoutConfig::getString('OCI_METHOD', 'GET'));
-		$targetUrl = LmdbWurthPunchoutConfig::getString('OCI_URL');
+		$method = strtoupper(getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_METHOD', 'GET'));
+		$targetUrl = getDolGlobalString('LMDBWURTHPUNCHOUT_OCI_URL');
 		renderLaunchPage($targetUrl, $method === 'POST' ? 'POST' : 'GET', $params, $order->id, $embed, $external);
 	}
 } catch (Exception $e) {

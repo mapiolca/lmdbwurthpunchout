@@ -1,4 +1,4 @@
-# AGENT.md - LmdbWurthPunchout
+# AGENTS.md - LmdbWurthPunchout
 
 This repository is the root of the Dolibarr external module `lmdbwurthpunchout`.
 

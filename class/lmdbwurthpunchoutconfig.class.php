@@ -7,60 +7,13 @@
 class LmdbWurthPunchoutConfig
 {
 	/**
-	 * Get string constant.
-	 *
-	 * @param string $name    Constant name without prefix
-	 * @param string $default Default value
-	 * @return string
-	 */
-	public static function getString($name, $default = '')
-	{
-		$key = 'LMDBWURTHPUNCHOUT_'.$name;
-		if (function_exists('getDolGlobalString')) {
-			return getDolGlobalString($key, $default);
-		}
-
-		global $conf;
-		return isset($conf->global->{$key}) ? (string) $conf->global->{$key} : $default;
-	}
-
-	/**
-	 * Get integer constant.
-	 *
-	 * @param string $name    Constant name without prefix
-	 * @param int    $default Default value
-	 * @return int
-	 */
-	public static function getInt($name, $default = 0)
-	{
-		$key = 'LMDBWURTHPUNCHOUT_'.$name;
-		if (function_exists('getDolGlobalInt')) {
-			return (int) getDolGlobalInt($key, $default);
-		}
-
-		return (int) self::getString($name, (string) $default);
-	}
-
-	/**
-	 * Get numeric constant.
-	 *
-	 * @param string $name    Constant name without prefix
-	 * @param float  $default Default value
-	 * @return float
-	 */
-	public static function getFloat($name, $default = 0.0)
-	{
-		return (float) str_replace(',', '.', self::getString($name, (string) $default));
-	}
-
-	/**
 	 * Return selected protocol.
 	 *
 	 * @return string
 	 */
 	public static function getProtocol()
 	{
-		$protocol = strtoupper(self::getString('PROTOCOL', 'OCI'));
+		$protocol = strtoupper(getDolGlobalString('LMDBWURTHPUNCHOUT_PROTOCOL', 'OCI'));
 		return in_array($protocol, array('OCI', 'CXML'), true) ? $protocol : 'OCI';
 	}
 
@@ -71,7 +24,7 @@ class LmdbWurthPunchoutConfig
 	 */
 	public static function getOpenMode()
 	{
-		$mode = strtolower(self::getString('OPEN_MODE', 'popup'));
+		$mode = strtolower(getDolGlobalString('LMDBWURTHPUNCHOUT_OPEN_MODE', 'popup'));
 		return in_array($mode, array('iframe', 'popup', 'newtab'), true) ? $mode : 'popup';
 	}
 
@@ -83,7 +36,7 @@ class LmdbWurthPunchoutConfig
 	 */
 	public static function getSecret($name)
 	{
-		$value = self::getString($name, '');
+		$value = getDolGlobalString('LMDBWURTHPUNCHOUT_'.$name, '');
 		if ($value !== '' && function_exists('dolDecrypt')) {
 			$decrypted = dolDecrypt($value);
 			if ($decrypted !== false && $decrypted !== '') {
@@ -148,7 +101,7 @@ class LmdbWurthPunchoutConfig
 	 */
 	public static function getExpectedCurrency()
 	{
-		$currency = strtoupper(self::getString('CURRENCY', 'EUR'));
+		$currency = strtoupper(getDolGlobalString('LMDBWURTHPUNCHOUT_CURRENCY', 'EUR'));
 		return preg_match('/^[A-Z]{3}$/', $currency) ? $currency : 'EUR';
 	}
 
@@ -163,7 +116,7 @@ class LmdbWurthPunchoutConfig
 		$protocol = $protocol !== '' ? strtoupper($protocol) : self::getProtocol();
 		$missing = array();
 
-		if (self::getInt('FK_SOC') <= 0) {
+		if (getDolGlobalInt('LMDBWURTHPUNCHOUT_FK_SOC') <= 0) {
 			$missing[] = 'LMDBWURTHPUNCHOUT_FK_SOC';
 		}
 
@@ -173,7 +126,7 @@ class LmdbWurthPunchoutConfig
 					if (self::getSecret($key) === '') {
 						$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 					}
-				} elseif (self::getString($key) === '') {
+				} elseif (getDolGlobalString('LMDBWURTHPUNCHOUT_'.$key) === '') {
 					$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 				}
 			}
@@ -183,7 +136,7 @@ class LmdbWurthPunchoutConfig
 					if (self::getSecret($key) === '') {
 						$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 					}
-				} elseif (self::getString($key) === '') {
+				} elseif (getDolGlobalString('LMDBWURTHPUNCHOUT_'.$key) === '') {
 					$missing[] = 'LMDBWURTHPUNCHOUT_'.$key;
 				}
 			}
